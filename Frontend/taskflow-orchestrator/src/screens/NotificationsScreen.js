@@ -21,7 +21,7 @@ export default function NotificationsScreen() {
         data={myNotifications}
         keyExtractor={(n) => n.id}
         contentContainerStyle={{ padding: 16 }}
-        ListEmptyComponent={<EmptyState icon="notifications-off-outline" text="Você não tem notificações." />}
+        ListEmptyComponent={<EmptyState icon="notifications-off-outline" text="O backend ainda não oferece notificações." />}
         renderItem={({ item: n }) => (
           <Card onPress={() => markRead(n.id)} style={{ flexDirection: 'row', backgroundColor: n.read ? '#fff' : '#EEF2FF' }}>
             <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary + '22', alignItems: 'center', justifyContent: 'center' }}>

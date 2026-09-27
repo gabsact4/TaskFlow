@@ -14,7 +14,7 @@ export default function HistoryScreen() {
       data={[...history].sort((a, b) => (a.date < b.date ? 1 : -1))}
       keyExtractor={(h) => h.id}
       contentContainerStyle={{ padding: 16 }}
-      ListEmptyComponent={<EmptyState text="Nenhuma alteração registrada." />}
+      ListEmptyComponent={<EmptyState text="O backend ainda não oferece histórico de alterações." />}
       renderItem={({ item: h }) => {
         const u = getUser(h.userId);
         return (

@@ -14,14 +14,14 @@ export default function NewTaskScreen({ route, navigation }) {
   const [priority, setPriority] = useState('medium');
   const [dueDate, setDueDate] = useState('');
 
-  const candidates = users.filter((u) => u.active && u.role !== 'visualizador' && (!project || project.memberIds.includes(u.id)));
+  const candidates = users.filter((u) => u.active);
 
   const save = () => {
     if (!title.trim()) return Alert.alert('Atenção', 'Informe o título da tarefa.');
     if (!projectId) return Alert.alert('Atenção', 'Selecione um projeto.');
     if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return Alert.alert('Atenção', 'Use o prazo no formato AAAA-MM-DD.');
-    addTask({ title: title.trim(), description: description.trim(), projectId, assigneeId, priority, dueDate: dueDate || null });
-    navigation.goBack();
+    addTask({ title: title.trim(), description: description.trim(), projectId, assigneeId, priority, dueDate: dueDate || null })
+      .then(() => navigation.goBack()).catch((e) => Alert.alert('Não foi possível criar a tarefa', e.message));
   };
 
   const Label = ({ children }) => <Text style={{ fontWeight: '600', marginBottom: 8, color: colors.text }}>{children}</Text>;

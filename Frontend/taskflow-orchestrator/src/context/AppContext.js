@@ -1,165 +1,107 @@
 import React, { createContext, useContext, useMemo, useState, useCallback } from 'react';
-import { USERS, PROJECTS, TASKS, NOTIFICATIONS, HISTORY } from '../data/mock';
+import { request, setToken, normalizeUser, normalizeProject, normalizeTask, apiStatus } from '../api';
 import { can as roleCan } from '../utils/permissions';
-import { STATUS, PRIORITY } from '../theme';
 
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
 
-let seq = 1000;
-const nid = (p) => `${p}${++seq}`;
-const nowISO = () => new Date().toISOString();
-
 export function AppProvider({ children }) {
-  const [currentId, setCurrentId] = useState(null);
-  const [users, setUsers] = useState(USERS);
-  const [projects, setProjects] = useState(PROJECTS);
-  const [tasks, setTasks] = useState(TASKS);
-  const [notifications, setNotifications] = useState(NOTIFICATIONS);
-  const [history, setHistory] = useState(HISTORY);
-
-  const user = users.find((u) => u.id === currentId) || null;
+  const [user, setUser] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const can = useCallback((action) => !!user && roleCan(user.role, action), [user]);
+  const getUser = useCallback((id) => users.find((u) => u.id === String(id)), [users]);
+  const getProject = useCallback((id) => projects.find((p) => p.id === String(id)), [projects]);
 
-  const getUser = useCallback((id) => users.find((u) => u.id === id), [users]);
-  const getProject = useCallback((id) => projects.find((p) => p.id === id), [projects]);
+  const refresh = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    setError('');
+    try {
+      const [projectData, me] = await Promise.all([request('/projects'), request('/users/me')]);
+      const projectRows = projectData.map(normalizeProject);
+      setProjects(projectRows);
+      setUser(normalizeUser(me));
+      if (me.role === 'ADMIN') {
+        const page = await request('/users?size=100');
+        setUsers((page.content || []).map(normalizeUser));
+      } else setUsers([normalizeUser(me)]);
+      const taskRows = await Promise.all(projectRows.map((p) => request(`/tasks/project/${p.id}`)));
+      setTasks(taskRows.flat().map(normalizeTask));
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  }, [user?.id]);
 
-  // ---------- Auth ----------
-  const login = (email, password) => {
-    const u = users.find((x) => x.email.toLowerCase() === email.trim().toLowerCase());
-    if (!u) return { ok: false, error: 'Usuário não encontrado.' };
-    if (!u.active) return { ok: false, error: 'Usuário desativado. Fale com um administrador.' };
-    if (u.password !== password) return { ok: false, error: 'Senha incorreta.' };
-    setCurrentId(u.id);
-    return { ok: true };
-  };
-  const loginAs = (id) => setCurrentId(id);
-  const logout = () => setCurrentId(null);
-
-  // ---------- Helpers ----------
-  const log = (text, extra = {}) =>
-    setHistory((h) => [{ id: nid('h'), userId: currentId, text, date: nowISO(), ...extra }, ...h]);
-
-  const pushNotif = (userId, title, body, type = 'task') =>
-    setNotifications((n) => [{ id: nid('n'), userId, type, title, body, date: nowISO(), read: false }, ...n]);
-
-  // ---------- Visibilidade por nível ----------
-  const visibleProjects = useMemo(() => {
-    if (!user) return [];
-    if (roleCan(user.role, 'viewAllProjects')) return projects;
-    return projects.filter((p) => p.memberIds.includes(user.id));
-  }, [user, projects]);
-
-  const visibleTasks = useMemo(() => {
-    const ids = new Set(visibleProjects.map((p) => p.id));
-    return tasks.filter((t) => ids.has(t.projectId));
-  }, [tasks, visibleProjects]);
-
-  const canChangeStatus = (task) =>
-    can('changeStatusAny') || (can('changeStatusOwn') && task.assigneeId === user?.id);
-
-  // ---------- Tarefas ----------
-  const addTask = (data) => {
-    const task = { id: nid('t'), status: 'todo', checklist: [], createdAt: nowISO(), ...data };
-    setTasks((t) => [task, ...t]);
-    log(`criou a tarefa "${task.title}"`, { taskId: task.id });
-    if (task.assigneeId && task.assigneeId !== currentId) {
-      pushNotif(task.assigneeId, 'Nova tarefa atribuída', `"${task.title}" foi atribuída a você.`);
-    }
-    return task;
+  const openSession = async (result) => {
+    setToken(result.accessToken);
+    setUser(normalizeUser(result.user));
+    const [projectData, me] = await Promise.all([request('/projects'), request('/users/me')]);
+    const projectRows = projectData.map(normalizeProject);
+    setProjects(projectRows);
+    setUser(normalizeUser(me));
+    if (me.role === 'ADMIN') {
+      const page = await request('/users?size=100');
+      setUsers((page.content || []).map(normalizeUser));
+    } else setUsers([normalizeUser(me)]);
+    const taskRows = await Promise.all(projectRows.map((p) => request(`/tasks/project/${p.id}`)));
+    setTasks(taskRows.flat().map(normalizeTask));
   };
 
-  const setTaskStatus = (id, status) => {
-    const task = tasks.find((t) => t.id === id);
-    if (!task || task.status === status) return;
-    setTasks((all) => all.map((t) => (t.id === id ? { ...t, status } : t)));
-    log(`moveu "${task.title}" de ${STATUS[task.status].label} para ${STATUS[status].label}`, { taskId: id });
-    if (status === 'review' && task.assigneeId === currentId) {
-      const project = projects.find((p) => p.id === task.projectId);
-      if (project && project.ownerId !== currentId) {
-        pushNotif(project.ownerId, 'Enviada para revisão', `"${task.title}" aguarda revisão.`);
-      }
-    }
+  const login = async (email, password) => {
+    setBusy(true); setError('');
+    try {
+      const result = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email: email.trim(), password }) });
+      await openSession(result);
+      return { ok: true };
+    } catch (e) { setToken(null); setUser(null); setError(e.message); return { ok: false, error: e.message }; }
+    finally { setBusy(false); }
   };
-
-  const setTaskPriority = (id, priority) => {
-    const task = tasks.find((t) => t.id === id);
-    if (!task || task.priority === priority) return;
-    setTasks((all) => all.map((t) => (t.id === id ? { ...t, priority } : t)));
-    log(`alterou a prioridade de "${task.title}" para ${PRIORITY[priority].label}`, { taskId: id });
+  const register = async (name, email, password) => {
+    setBusy(true); setError('');
+    try {
+      const result = await request('/auth/register', { method: 'POST', body: JSON.stringify({ name: name.trim(), email: email.trim(), password }) });
+      await openSession(result);
+      return { ok: true };
+    } catch (e) { setToken(null); setUser(null); setError(e.message); return { ok: false, error: e.message }; }
+    finally { setBusy(false); }
   };
+  const logout = () => { setToken(null); setUser(null); setUsers([]); setProjects([]); setTasks([]); setError(''); };
 
-  const toggleChecklistItem = (taskId, itemId) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
-    const item = task.checklist.find((c) => c.id === itemId);
-    setTasks((all) =>
-      all.map((t) =>
-        t.id === taskId
-          ? { ...t, checklist: t.checklist.map((c) => (c.id === itemId ? { ...c, done: !c.done } : c)) }
-          : t
-      )
-    );
-    log(`${item.done ? 'desmarcou' : 'marcou'} "${item.text}" em "${task.title}"`, { taskId });
+  const visibleProjects = useMemo(() => projects, [projects]);
+  const visibleTasks = useMemo(() => tasks, [tasks]);
+  const canManageTask = (task) => !!user && (task.creatorId === user.id || task.projectOwnerId === user.id || projects.find((p) => p.id === task.projectId)?.ownerId === user.id);
+  const canChangeStatus = (task) => canManageTask(task);
+
+  const addProject = async (data) => {
+    const project = normalizeProject(await request('/projects', { method: 'POST', body: JSON.stringify({ name: data.name, projectKey: data.projectKey, description: data.description }) }));
+    setProjects((all) => [project, ...all]); return project;
   };
-
-  const addChecklistItem = (taskId, text) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task || !text.trim()) return;
-    setTasks((all) =>
-      all.map((t) =>
-        t.id === taskId ? { ...t, checklist: [...t.checklist, { id: nid('c'), text: text.trim(), done: false }] } : t
-      )
-    );
-    log(`adicionou "${text.trim()}" ao checklist de "${task.title}"`, { taskId });
+  const addTask = async (data) => {
+    const task = normalizeTask(await request('/tasks', { method: 'POST', body: JSON.stringify({ title: data.title, description: data.description, status: 'TODO', priority: (data.priority || 'medium').toUpperCase(), dueDate: data.dueDate || null, projectId: Number(data.projectId), assigneeId: data.assigneeId ? Number(data.assigneeId) : null }) }));
+    setTasks((all) => [task, ...all]); return task;
   };
-
-  const deleteTask = (id) => {
-    const task = tasks.find((t) => t.id === id);
-    setTasks((all) => all.filter((t) => t.id !== id));
-    if (task) log(`excluiu a tarefa "${task.title}"`);
+  const updateTask = async (task, changes) => {
+    const body = { title: changes.title ?? task.title, description: changes.description ?? task.description ?? '', status: apiStatus(changes.status ?? task.status), priority: (changes.priority ?? task.priority).toUpperCase(), dueDate: changes.dueDate === undefined ? task.dueDate : changes.dueDate || null, projectId: Number(changes.projectId ?? task.projectId), assigneeId: (changes.assigneeId ?? task.assigneeId) ? Number(changes.assigneeId ?? task.assigneeId) : null };
+    const saved = normalizeTask(await request(`/tasks/${task.id}`, { method: 'PUT', body: JSON.stringify(body) }));
+    setTasks((all) => all.map((t) => t.id === saved.id ? saved : t)); return saved;
   };
-
-  // ---------- Projetos ----------
-  const addProject = (data) => {
-    const project = { id: nid('p'), ownerId: currentId, color: '#4F46E5', ...data };
-    setProjects((p) => [project, ...p]);
-    log(`criou o projeto "${project.name}"`, { projectId: project.id });
-    return project;
-  };
-
-  // ---------- Usuários ----------
-  const setUserRole = (id, role) => {
-    const target = users.find((u) => u.id === id);
-    setUsers((all) => all.map((u) => (u.id === id ? { ...u, role } : u)));
-    if (target) log(`alterou o nível de acesso de ${target.name}`);
-  };
-
-  const toggleUserActive = (id) => {
-    const target = users.find((u) => u.id === id);
-    setUsers((all) => all.map((u) => (u.id === id ? { ...u, active: !u.active } : u)));
-    if (target) log(`${target.active ? 'desativou' : 'ativou'} o usuário ${target.name}`);
-  };
-
-  // ---------- Notificações ----------
-  const myNotifications = useMemo(
-    () => notifications.filter((n) => n.userId === currentId).sort((a, b) => (a.date < b.date ? 1 : -1)),
-    [notifications, currentId]
-  );
-  const unreadCount = myNotifications.filter((n) => !n.read).length;
-  const markRead = (id) => setNotifications((all) => all.map((n) => (n.id === id ? { ...n, read: true } : n)));
-  const markAllRead = () =>
-    setNotifications((all) => all.map((n) => (n.userId === currentId ? { ...n, read: true } : n)));
+  const setTaskStatus = async (id, status) => { const task = tasks.find((t) => t.id === String(id)); if (task) return updateTask(task, { status }); };
+  const setTaskPriority = async (id, priority) => { const task = tasks.find((t) => t.id === String(id)); if (task) return updateTask(task, { priority }); };
+  const deleteTask = async (id) => { await request(`/tasks/${id}`, { method: 'DELETE' }); setTasks((all) => all.filter((t) => t.id !== String(id))); };
+  const setUserRole = async (id, role) => { const saved = normalizeUser(await request(`/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role: role === 'admin' ? 'ADMIN' : 'USER' }) })); setUsers((all) => all.map((u) => u.id === saved.id ? saved : u)); };
+  const toggleUserActive = () => {};
+  const noop = () => {};
 
   const value = {
-    user, users, projects, tasks, history,
-    visibleProjects, visibleTasks,
-    can, canChangeStatus, getUser, getProject,
-    login, loginAs, logout,
-    addTask, setTaskStatus, setTaskPriority, toggleChecklistItem, addChecklistItem, deleteTask,
-    addProject, setUserRole, toggleUserActive,
-    myNotifications, unreadCount, markRead, markAllRead,
+    user, users, projects, tasks, history: [], error, loading, busy, refresh,
+    visibleProjects, visibleTasks, can, canChangeStatus, canManageTask, getUser, getProject,
+    login, register, loginAs: noop, logout, addTask, setTaskStatus, setTaskPriority,
+    toggleChecklistItem: noop, addChecklistItem: noop, deleteTask, updateTask, addProject,
+    setUserRole, toggleUserActive, myNotifications: [], unreadCount: 0, markRead: noop, markAllRead: noop,
   };
-
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

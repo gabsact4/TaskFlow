@@ -34,15 +34,13 @@ export const shadows = {
 export const STATUS = {
   todo: { label: 'A fazer', color: '#6B7280' },
   doing: { label: 'Em andamento', color: '#0EA5E9' },
-  review: { label: 'Em revisão', color: '#F59E0B' },
   done: { label: 'Concluída', color: '#16A34A' },
 };
-export const STATUS_ORDER = ['todo', 'doing', 'review', 'done'];
+export const STATUS_ORDER = ['todo', 'doing', 'done'];
 
 export const PRIORITY = {
   low: { label: 'Baixa', color: '#16A34A' },
   medium: { label: 'Média', color: '#F59E0B' },
   high: { label: 'Alta', color: '#EA580C' },
-  urgent: { label: 'Urgente', color: '#DC2626' },
 };
-export const PRIORITY_ORDER = ['low', 'medium', 'high', 'urgent'];
+export const PRIORITY_ORDER = ['low', 'medium', 'high'];

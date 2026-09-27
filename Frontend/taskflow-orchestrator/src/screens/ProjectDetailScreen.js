@@ -2,20 +2,18 @@ import React from 'react';
 import { ScrollView, View, Text } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { colors, STATUS_ORDER, STATUS } from '../theme';
-import { Card, Badge, ProgressBar, Avatar, SectionTitle, Button, EmptyState } from '../components/ui';
+import { Card, Badge, ProgressBar, SectionTitle, Button, EmptyState } from '../components/ui';
 import TaskCard from '../components/TaskCard';
-import { ROLES } from '../utils/permissions';
-import { formatDate, projectProgress } from '../utils/format';
+import { projectProgress } from '../utils/format';
 
 export default function ProjectDetailScreen({ route, navigation }) {
   const { id } = route.params;
-  const { getProject, getUser, visibleTasks, can } = useApp();
+  const { getProject, visibleTasks, can } = useApp();
   const project = getProject(id);
   if (!project) return <EmptyState text="Projeto não encontrado." />;
 
   const tasks = visibleTasks.filter((t) => t.projectId === id);
   const pr = projectProgress(tasks);
-  const owner = getUser(project.ownerId);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
@@ -23,7 +21,7 @@ export default function ProjectDetailScreen({ route, navigation }) {
         <Text style={{ fontSize: 20, fontWeight: '800', color: colors.text }}>{project.name}</Text>
         <Text style={{ color: colors.muted, marginTop: 6 }}>{project.description}</Text>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 14, marginBottom: 6 }}>
-          <Text style={{ color: colors.muted, fontSize: 12 }}>Prazo: {formatDate(project.deadline)}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12 }}>Chave: {project.projectKey}</Text>
           <Text style={{ color: colors.muted, fontSize: 12 }}>{Math.round(pr * 100)}% concluído</Text>
         </View>
         <ProgressBar value={pr} color={project.color} />
@@ -34,23 +32,7 @@ export default function ProjectDetailScreen({ route, navigation }) {
         </View>
       </Card>
 
-      <SectionTitle>Equipe</SectionTitle>
-      <Card>
-        {project.memberIds.map((mid) => {
-          const u = getUser(mid);
-          if (!u) return null;
-          return (
-            <View key={mid} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-              <Avatar name={u.name} color={ROLES[u.role].color} />
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={{ fontWeight: '600', color: colors.text }}>{u.name}{owner && owner.id === u.id ? ' • responsável' : ''}</Text>
-                <Text style={{ color: colors.muted, fontSize: 12 }}>{u.title}</Text>
-              </View>
-              <Badge label={ROLES[u.role].label} color={ROLES[u.role].color} />
-            </View>
-          );
-        })}
-      </Card>
+      <Text style={{ color: colors.muted, marginHorizontal: 4, marginBottom: 12 }}>O backend ainda não oferece gerenciamento de membros nem prazo para projetos.</Text>
 
       <SectionTitle>Tarefas ({tasks.length})</SectionTitle>
       {can('createTask') ? (

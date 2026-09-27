@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { colors } from '../theme';
 import { Card, ProgressBar, Avatar, Fab, EmptyState } from '../components/ui';
-import { formatDate, projectProgress } from '../utils/format';
+import { projectProgress } from '../utils/format';
 
 export default function ProjectsScreen({ navigation }) {
   const { visibleProjects, visibleTasks, getUser, can } = useApp();
@@ -40,8 +40,8 @@ export default function ProjectsScreen({ navigation }) {
                   })}
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name="flag-outline" size={14} color={colors.muted} />
-                  <Text style={{ color: colors.muted, fontSize: 12, marginLeft: 4 }}>{formatDate(p.deadline)}</Text>
+                  <Ionicons name="key-outline" size={14} color={colors.muted} />
+                  <Text style={{ color: colors.muted, fontSize: 12, marginLeft: 4 }}>{p.projectKey}</Text>
                 </View>
               </View>
             </Card>
