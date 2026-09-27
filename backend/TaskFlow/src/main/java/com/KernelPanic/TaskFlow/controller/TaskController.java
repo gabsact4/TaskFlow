@@ -1,6 +1,9 @@
 package com.KernelPanic.TaskFlow.controller;
 
 import com.KernelPanic.TaskFlow.dto.CreateTaskRequest;
+import com.KernelPanic.TaskFlow.dto.CreateChecklistItemRequest;
+import com.KernelPanic.TaskFlow.dto.UpdateChecklistItemRequest;
+import com.KernelPanic.TaskFlow.dto.TaskChecklistItemResponse;
 import com.KernelPanic.TaskFlow.dto.TaskResponse;
 import com.KernelPanic.TaskFlow.dto.UpdateTaskRequest;
 import com.KernelPanic.TaskFlow.entity.User;
@@ -58,6 +61,39 @@ public class TaskController {
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
         taskService.delete(id, currentUser);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{taskId}/checklist")
+    public ResponseEntity<List<TaskChecklistItemResponse>> listChecklist(
+            @PathVariable Long taskId,
+            @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(taskService.listChecklist(taskId, currentUser));
+    }
+
+    @PostMapping("/{taskId}/checklist")
+    public ResponseEntity<TaskChecklistItemResponse> addChecklistItem(
+            @PathVariable Long taskId,
+            @Valid @RequestBody CreateChecklistItemRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(taskService.addChecklistItem(taskId, request, currentUser));
+    }
+
+    @PatchMapping("/{taskId}/checklist/{itemId}")
+    public ResponseEntity<TaskChecklistItemResponse> updateChecklistItem(
+            @PathVariable Long taskId,
+            @PathVariable Long itemId,
+            @Valid @RequestBody UpdateChecklistItemRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(taskService.updateChecklistItem(taskId, itemId, request, currentUser));
+    }
+
+    @DeleteMapping("/{taskId}/checklist/{itemId}")
+    public ResponseEntity<Void> deleteChecklistItem(
+            @PathVariable Long taskId,
+            @PathVariable Long itemId,
+            @AuthenticationPrincipal User currentUser) {
+        taskService.deleteChecklistItem(taskId, itemId, currentUser);
         return ResponseEntity.noContent().build();
     }
 }

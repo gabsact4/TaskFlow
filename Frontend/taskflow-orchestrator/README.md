@@ -22,16 +22,21 @@ O backend precisa ter o banco, `JWT_SECRET` e as chaves de criptografia configur
 - Cadastro e login; o token JWT é enviado nas chamadas autenticadas.
 - Listagem e criação de projetos.
 - Listagem, criação, atualização de status/prioridade e exclusão de tarefas.
+- Checklist persistente nas tarefas e subtarefas, com status e prioridade próprios.
+- Recorrência diária, semanal ou mensal, agendada pelo backend.
+- Modelos pessoais de tarefas e projetos; modelos de projeto podem incluir tarefas hierárquicas iniciais.
 - Lista de usuários e alteração de papel por administradores.
 
-Os status e prioridades exibidos correspondem aos enums da API. A edição/exclusão de tarefa respeita a regra do backend: apenas quem criou a tarefa ou quem é dono do projeto pode alterá-la.
+Os status e prioridades exibidos correspondem aos enums da API. A edição/exclusão de tarefa e as alterações no checklist respeitam a regra do backend: apenas quem criou a tarefa ou quem é dono do projeto pode alterá-la.
 
 ## Limites atuais da API
 
-O backend ainda não oferece checklist, histórico de alterações, notificações, membros/prazo de projeto ou ativação de usuários. Essas opções não são persistidas pelo app. Os papéis disponíveis na API são `ADMIN` e `USER`.
+O backend ainda não oferece histórico de alterações, notificações, membros/prazo de projeto ou ativação de usuários. Essas opções não são persistidas pelo app. Tarefas podem ter níveis hierárquicos ilimitados. Os papéis disponíveis na API são `ADMIN` e `USER`.
 
 ## Estrutura
 
 - `src/api.js`: URL base, autenticação JWT e conversão dos DTOs.
 - `src/context/AppContext.js`: chamadas e estado da sessão.
 - `src/screens/`: telas do aplicativo.
+
+As migrations Flyway V4–V6 criam o checklist, a hierarquia ilimitada, a recorrência e os modelos. As recorrências são processadas diariamente às 00:10 UTC (`taskflow.recurrence.cron` pode ser alterado por configuração). Na tela **Mais → Modelos**, as linhas de tarefas iniciais de um modelo de projeto usam dois espaços por nível de hierarquia.

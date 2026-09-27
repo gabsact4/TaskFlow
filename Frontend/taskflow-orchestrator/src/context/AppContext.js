@@ -72,7 +72,7 @@ export function AppProvider({ children }) {
   const logout = () => { setToken(null); setUser(null); setUsers([]); setProjects([]); setTasks([]); setError(''); };
 
   const visibleProjects = useMemo(() => projects, [projects]);
-  const visibleTasks = useMemo(() => tasks, [tasks]);
+  const visibleTasks = useMemo(() => tasks.filter((task) => !task.parentTaskId), [tasks]);
   const canManageTask = (task) => !!user && (task.creatorId === user.id || task.projectOwnerId === user.id || projects.find((p) => p.id === task.projectId)?.ownerId === user.id);
   const canChangeStatus = (task) => canManageTask(task);
 
@@ -81,17 +81,45 @@ export function AppProvider({ children }) {
     setProjects((all) => [project, ...all]); return project;
   };
   const addTask = async (data) => {
-    const task = normalizeTask(await request('/tasks', { method: 'POST', body: JSON.stringify({ title: data.title, description: data.description, status: 'TODO', priority: (data.priority || 'medium').toUpperCase(), dueDate: data.dueDate || null, projectId: Number(data.projectId), assigneeId: data.assigneeId ? Number(data.assigneeId) : null }) }));
+    const task = normalizeTask(await request('/tasks', { method: 'POST', body: JSON.stringify({ title: data.title, description: data.description, status: 'TODO', priority: (data.priority || 'medium').toUpperCase(), dueDate: data.dueDate || null, projectId: Number(data.projectId), assigneeId: data.assigneeId ? Number(data.assigneeId) : null, parentTaskId: data.parentTaskId ? Number(data.parentTaskId) : null, recurrence: (data.recurrence || 'none').toUpperCase(), recurrenceEndDate: data.recurrenceEndDate || null }) }));
     setTasks((all) => [task, ...all]); return task;
   };
   const updateTask = async (task, changes) => {
-    const body = { title: changes.title ?? task.title, description: changes.description ?? task.description ?? '', status: apiStatus(changes.status ?? task.status), priority: (changes.priority ?? task.priority).toUpperCase(), dueDate: changes.dueDate === undefined ? task.dueDate : changes.dueDate || null, projectId: Number(changes.projectId ?? task.projectId), assigneeId: (changes.assigneeId ?? task.assigneeId) ? Number(changes.assigneeId ?? task.assigneeId) : null };
+    const body = { title: changes.title ?? task.title, description: changes.description ?? task.description ?? '', status: apiStatus(changes.status ?? task.status), priority: (changes.priority ?? task.priority).toUpperCase(), dueDate: changes.dueDate === undefined ? task.dueDate : changes.dueDate || null, projectId: Number(changes.projectId ?? task.projectId), assigneeId: (changes.assigneeId ?? task.assigneeId) ? Number(changes.assigneeId ?? task.assigneeId) : null, recurrence: (changes.recurrence ?? task.recurrence ?? 'none').toUpperCase(), recurrenceEndDate: changes.recurrenceEndDate === undefined ? task.recurrenceEndDate || null : changes.recurrenceEndDate || null };
     const saved = normalizeTask(await request(`/tasks/${task.id}`, { method: 'PUT', body: JSON.stringify(body) }));
     setTasks((all) => all.map((t) => t.id === saved.id ? saved : t)); return saved;
   };
   const setTaskStatus = async (id, status) => { const task = tasks.find((t) => t.id === String(id)); if (task) return updateTask(task, { status }); };
   const setTaskPriority = async (id, priority) => { const task = tasks.find((t) => t.id === String(id)); if (task) return updateTask(task, { priority }); };
-  const deleteTask = async (id) => { await request(`/tasks/${id}`, { method: 'DELETE' }); setTasks((all) => all.filter((t) => t.id !== String(id))); };
+  const setTaskRecurrence = async (id, recurrence, recurrenceEndDate) => { const task = tasks.find((t) => t.id === String(id)); if (task) return updateTask(task, { recurrence, recurrenceEndDate }); };
+  const addChecklistItem = async (taskId, text) => {
+    const item = await request(`/tasks/${taskId}/checklist`, { method: 'POST', body: JSON.stringify({ text }) });
+    setTasks((all) => all.map((task) => task.id === String(taskId) ? { ...task, checklist: [...task.checklist, { ...item, id: String(item.id) }] } : task));
+  };
+  const toggleChecklistItem = async (taskId, itemId) => {
+    const task = tasks.find((t) => t.id === String(taskId));
+    const item = task?.checklist.find((entry) => entry.id === String(itemId));
+    if (!item) return;
+    const saved = await request(`/tasks/${taskId}/checklist/${itemId}`, { method: 'PATCH', body: JSON.stringify({ done: !item.done }) });
+    setTasks((all) => all.map((t) => t.id === String(taskId) ? { ...t, checklist: t.checklist.map((entry) => entry.id === String(itemId) ? { ...entry, done: saved.done } : entry) } : t));
+  };
+  const deleteChecklistItem = async (taskId, itemId) => {
+    await request(`/tasks/${taskId}/checklist/${itemId}`, { method: 'DELETE' });
+    setTasks((all) => all.map((t) => t.id === String(taskId) ? { ...t, checklist: t.checklist.filter((entry) => entry.id !== String(itemId)) } : t));
+  };
+  const instantiateTaskTemplate = async (templateId, data) => {
+    const task = normalizeTask(await request(`/task-templates/${templateId}/tasks`, { method: 'POST', body: JSON.stringify(data) }));
+    setTasks((all) => [task, ...all]);
+    return task;
+  };
+  const instantiateProjectTemplate = async (templateId, projectKey) => {
+    const project = normalizeProject(await request(`/project-templates/${templateId}/projects`, { method: 'POST', body: JSON.stringify({ projectKey }) }));
+    const taskRows = await request(`/tasks/project/${project.id}`);
+    setProjects((all) => [project, ...all]);
+    setTasks((all) => [...all, ...taskRows.map(normalizeTask)]);
+    return project;
+  };
+  const deleteTask = async (id) => { await request(`/tasks/${id}`, { method: 'DELETE' }); setTasks((all) => all.filter((t) => t.id !== String(id) && t.parentTaskId !== String(id))); };
   const setUserRole = async (id, role) => { const saved = normalizeUser(await request(`/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role: role === 'admin' ? 'ADMIN' : 'USER' }) })); setUsers((all) => all.map((u) => u.id === saved.id ? saved : u)); };
   const toggleUserActive = () => {};
   const noop = () => {};
@@ -99,8 +127,9 @@ export function AppProvider({ children }) {
   const value = {
     user, users, projects, tasks, history: [], error, loading, busy, refresh,
     visibleProjects, visibleTasks, can, canChangeStatus, canManageTask, getUser, getProject,
-    login, register, loginAs: noop, logout, addTask, setTaskStatus, setTaskPriority,
-    toggleChecklistItem: noop, addChecklistItem: noop, deleteTask, updateTask, addProject,
+    login, register, loginAs: noop, logout, addTask, setTaskStatus, setTaskPriority, setTaskRecurrence,
+    toggleChecklistItem, addChecklistItem, deleteChecklistItem, deleteTask, updateTask, addProject,
+    instantiateTaskTemplate, instantiateProjectTemplate,
     setUserRole, toggleUserActive, myNotifications: [], unreadCount: 0, markRead: noop, markAllRead: noop,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

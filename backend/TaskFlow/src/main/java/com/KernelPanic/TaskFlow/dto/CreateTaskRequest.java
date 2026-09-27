@@ -1,6 +1,7 @@
 package com.KernelPanic.TaskFlow.dto;
 
 import com.KernelPanic.TaskFlow.enums.TaskPriority;
+import com.KernelPanic.TaskFlow.enums.TaskRecurrence;
 import com.KernelPanic.TaskFlow.enums.TaskStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -15,5 +16,8 @@ public record CreateTaskRequest(
         TaskPriority priority,
         LocalDate dueDate,
         @NotNull Long projectId,
-        Long assigneeId
+        Long assigneeId,
+        Long parentTaskId,
+        TaskRecurrence recurrence,
+        LocalDate recurrenceEndDate
 ) {}

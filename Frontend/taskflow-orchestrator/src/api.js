@@ -38,7 +38,10 @@ export const normalizeProject = (p) => ({ ...p, id: String(p.id), ownerId: Strin
 export const normalizeTask = (t) => ({
   ...t,
   id: String(t.id), projectId: String(t.projectId), assigneeId: t.assigneeId == null ? null : String(t.assigneeId),
+  parentTaskId: t.parentTaskId == null ? null : String(t.parentTaskId),
   creatorId: String(t.creatorId), status: ({ TODO: 'todo', IN_PROGRESS: 'doing', DONE: 'done' })[t.status] || 'todo',
-  priority: (t.priority || 'MEDIUM').toLowerCase(), checklist: [],
+  priority: (t.priority || 'MEDIUM').toLowerCase(),
+  recurrence: (t.recurrence || 'NONE').toLowerCase(),
+  checklist: (t.checklist || []).map((item) => ({ ...item, id: String(item.id) })),
 });
 export const apiStatus = (status) => ({ todo: 'TODO', doing: 'IN_PROGRESS', review: 'IN_PROGRESS', done: 'DONE' })[status] || 'TODO';

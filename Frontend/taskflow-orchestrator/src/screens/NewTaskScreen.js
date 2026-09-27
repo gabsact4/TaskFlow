@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, Text, View, Alert } from 'react-native';
 import { useApp } from '../context/AppContext';
-import { colors, PRIORITY, PRIORITY_ORDER } from '../theme';
+import { colors, PRIORITY, PRIORITY_ORDER, RECURRENCE, RECURRENCE_ORDER } from '../theme';
 import { Field, Button, Chip } from '../components/ui';
 
 export default function NewTaskScreen({ route, navigation }) {
@@ -13,6 +13,8 @@ export default function NewTaskScreen({ route, navigation }) {
   const [assigneeId, setAssigneeId] = useState(null);
   const [priority, setPriority] = useState('medium');
   const [dueDate, setDueDate] = useState('');
+  const [recurrence, setRecurrence] = useState('none');
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
 
   const candidates = users.filter((u) => u.active);
 
@@ -20,7 +22,8 @@ export default function NewTaskScreen({ route, navigation }) {
     if (!title.trim()) return Alert.alert('Atenção', 'Informe o título da tarefa.');
     if (!projectId) return Alert.alert('Atenção', 'Selecione um projeto.');
     if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return Alert.alert('Atenção', 'Use o prazo no formato AAAA-MM-DD.');
-    addTask({ title: title.trim(), description: description.trim(), projectId, assigneeId, priority, dueDate: dueDate || null })
+    if (recurrenceEndDate && !/^\d{4}-\d{2}-\d{2}$/.test(recurrenceEndDate)) return Alert.alert('Atenção', 'Use a data final no formato AAAA-MM-DD.');
+    addTask({ title: title.trim(), description: description.trim(), projectId, assigneeId, priority, dueDate: dueDate || null, recurrence, recurrenceEndDate: recurrenceEndDate || null })
       .then(() => navigation.goBack()).catch((e) => Alert.alert('Não foi possível criar a tarefa', e.message));
   };
 
@@ -60,6 +63,11 @@ export default function NewTaskScreen({ route, navigation }) {
       </Wrap>
 
       <Field label="Prazo (AAAA-MM-DD)" value={dueDate} onChangeText={setDueDate} placeholder="2026-10-15" />
+      <Label>Repetição</Label>
+      <Wrap>
+        {RECURRENCE_ORDER.map((value) => <View key={value} style={{ marginBottom: 8 }}><Chip label={RECURRENCE[value].label} active={recurrence === value} onPress={() => setRecurrence(value)} /></View>)}
+      </Wrap>
+      {recurrence !== 'none' ? <Field label="Repetir até (opcional, AAAA-MM-DD)" value={recurrenceEndDate} onChangeText={setRecurrenceEndDate} placeholder="2026-12-31" /> : null}
       <Button title="Criar tarefa" icon="checkmark" onPress={save} />
     </ScrollView>
   );

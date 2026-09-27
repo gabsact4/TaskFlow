@@ -44,3 +44,11 @@ export const PRIORITY = {
   high: { label: 'Alta', color: '#EA580C' },
 };
 export const PRIORITY_ORDER = ['low', 'medium', 'high'];
+
+export const RECURRENCE = {
+  none: { label: 'Não se repete' },
+  daily: { label: 'Diária' },
+  weekly: { label: 'Semanal' },
+  monthly: { label: 'Mensal' },
+};
+export const RECURRENCE_ORDER = ['none', 'daily', 'weekly', 'monthly'];

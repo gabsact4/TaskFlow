@@ -2,11 +2,14 @@ package com.KernelPanic.TaskFlow.entity;
 
 import com.KernelPanic.TaskFlow.enums.TaskPriority;
 import com.KernelPanic.TaskFlow.enums.TaskStatus;
+import com.KernelPanic.TaskFlow.enums.TaskRecurrence;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "tasks")
@@ -37,6 +40,17 @@ public class Task {
     @Builder.Default
     private TaskPriority priority = TaskPriority.MEDIUM;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private TaskRecurrence recurrence = TaskRecurrence.NONE;
+
+    @Column(name = "recurrence_end_date")
+    private LocalDate recurrenceEndDate;
+
+    @Column(name = "next_occurrence_date")
+    private LocalDate nextOccurrenceDate;
+
     @Column(name = "due_date")
     private LocalDate dueDate;
 
@@ -51,6 +65,15 @@ public class Task {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "creator_id", nullable = false)
     private User creator;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_task_id")
+    private Task parentTask;
+
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("position ASC, id ASC")
+    @Builder.Default
+    private List<TaskChecklistItem> checklistItems = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

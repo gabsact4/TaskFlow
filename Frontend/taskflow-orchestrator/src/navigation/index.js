@@ -23,6 +23,7 @@ import UsersScreen from '../screens/UsersScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import PermissionsScreen from '../screens/PermissionsScreen';
 import MoreScreen from '../screens/MoreScreen';
+import TemplatesScreen from '../screens/TemplatesScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -98,6 +99,7 @@ export default function Navigation() {
             <Stack.Screen name="NovoProjeto" component={NewProjectScreen} options={{ title: 'Novo projeto' }} />
             <Stack.Screen name="TarefaDetalhe" component={TaskDetailScreen} options={{ title: 'Tarefa' }} />
             <Stack.Screen name="NovaTarefa" component={NewTaskScreen} options={{ title: 'Nova tarefa' }} />
+            <Stack.Screen name="Modelos" component={TemplatesScreen} options={{ title: 'Modelos' }} />
             <Stack.Screen name="Calendario" component={CalendarScreen} options={{ title: 'Calendário' }} />
             <Stack.Screen name="Notificacoes" component={NotificationsScreen} options={{ title: 'Notificações' }} />
             <Stack.Screen name="Historico" component={HistoryScreen} options={{ title: 'Histórico' }} />
