@@ -5,21 +5,15 @@ import { useApp } from '../context/AppContext';
 import { Field, Button, Card } from '../components/ui';
 import { colors } from '../theme';
 
-export default function LoginScreen() {
-  const { login, register, busy, error: apiError } = useApp();
-  const [creatingAccount, setCreatingAccount] = useState(false);
-  const [name, setName] = useState('');
+export default function LoginScreen({ navigation }) {
+  const { login, busy, error: apiError } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const submit = async () => {
     setError('');
-    if (creatingAccount && (!name.trim() || password.length < 8)) {
-      setError('Informe seu nome e uma senha com pelo menos 8 caracteres.');
-      return;
-    }
-    const r = creatingAccount ? await register(name, email, password) : await login(email, password);
+    const r = await login(email, password);
     if (!r.ok) setError(r.error);
   };
 
@@ -35,15 +29,14 @@ export default function LoginScreen() {
         </View>
 
         <Card>
-          {creatingAccount ? <Field label="Nome" value={name} onChangeText={setName} placeholder="Seu nome" /> : null}
           <Field label="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="voce@empresa.com" />
-          <Field label="Senha" value={password} onChangeText={setPassword} secureTextEntry placeholder={creatingAccount ? 'Mínimo de 8 caracteres' : 'Sua senha'} />
+          <Field label="Senha" value={password} onChangeText={setPassword} secureTextEntry placeholder="Sua senha" />
           {error || apiError ? <Text style={{ color: colors.danger, marginBottom: 10 }}>{error || apiError}</Text> : null}
-          <Button title={busy ? 'Conectando…' : creatingAccount ? 'Criar conta' : 'Entrar'} icon={creatingAccount ? 'person-add-outline' : 'log-in-outline'} onPress={submit} disabled={busy} />
+          <Button title={busy ? 'Conectando…' : 'Entrar'} icon="log-in-outline" onPress={submit} disabled={busy} />
         </Card>
 
-        <Text onPress={() => { setCreatingAccount(!creatingAccount); setError(''); }} style={{ color: colors.primary, fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 16 }}>
-          {creatingAccount ? 'Já tem uma conta? Entrar' : 'Ainda não tem conta? Criar conta'}
+        <Text onPress={() => navigation.navigate('Cadastro')} style={{ color: colors.primary, fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 16 }}>
+          Ainda não tem conta? Criar conta
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>

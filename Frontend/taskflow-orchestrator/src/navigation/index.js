@@ -8,6 +8,7 @@ import { useApp } from '../context/AppContext';
 import { colors } from '../theme';
 
 import LoginScreen from '../screens/LoginScreen';
+import RegisterScreen from '../screens/RegisterScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import ProjectsScreen from '../screens/ProjectsScreen';
 import ProjectDetailScreen from '../screens/ProjectDetailScreen';
@@ -86,7 +87,10 @@ export default function Navigation() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '700' } }}>
         {!user ? (
-          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Cadastro" component={RegisterScreen} options={{ title: 'Criar conta' }} />
+          </>
         ) : (
           <>
             <Stack.Screen name="Main" component={Tabs} options={{ headerShown: false }} />
