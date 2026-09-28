@@ -7,7 +7,7 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-taskflow_dev_password}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-taskflow_root_dev_password}
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - taskflow-mysql-data:/var/lib/mysql
     healthcheck:

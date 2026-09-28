@@ -117,7 +117,7 @@ Alertas críticos → Backup → Exportação
 
 ## Executar backend e banco com Docker
 
-Com Docker e Docker Compose instalados, inicie a API e o MySQL na raiz do repositório com `docker compose up --build`. A API ficará disponível em `http://localhost:8080`; o MySQL estará na porta `3306`. Os dados do banco persistem no volume `taskflow-mysql-data`.
+Com Docker e Docker Compose instalados, inicie a API e o MySQL na raiz do repositório com `docker compose up --build`. A API ficará disponível em `http://localhost:8080`; o MySQL estará na porta `3307` do computador (porta `3306` no container). Os dados do banco persistem no volume `taskflow-mysql-data`.
 
 O Compose inclui valores padrão apenas para desenvolvimento local. Antes de usar fora da máquina local, configure `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `JWT_SECRET` (pelo menos 32 bytes aleatórios) e `DATA_ENCRYPTION_KEY` (chave Base64 de 32 bytes) no ambiente. Mantenha `DATA_ENCRYPTION_KEY` estável: trocar essa chave impede descriptografar os dados já armazenados. Para encerrar, use `docker compose down`; para apagar também os dados do banco, use `docker compose down -v`.
 
