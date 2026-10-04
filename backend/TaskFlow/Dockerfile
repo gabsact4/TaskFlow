@@ -1,4 +1,4 @@
-FROM maven:3.9.9-eclipse-temurin-21 AS build
+FROM maven:3.9.16-eclipse-temurin-25 AS build
 
 WORKDIR /workspace
 COPY pom.xml mvnw ./
@@ -8,7 +8,7 @@ RUN chmod +x mvnw && ./mvnw -B dependency:go-offline
 COPY src src
 RUN ./mvnw -B package -DskipTests
 
-FROM eclipse-temurin:21-jre-jammy AS runtime
+FROM eclipse-temurin:25-jre-jammy AS runtime
 
 WORKDIR /app
 RUN groupadd --system app && useradd --system --gid app --home-dir /app app
