@@ -4,10 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { request } from '../api';
 import { colors, PRIORITY, PRIORITY_ORDER, RECURRENCE, RECURRENCE_ORDER } from '../theme';
-import { Button, Card, Chip, ChipRow, Field, SectionTitle } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Field, SectionTitle, EmptyState } from '../components/ui';
 
 export default function TemplatesScreen() {
-  const { projects, instantiateTaskTemplate, instantiateProjectTemplate } = useApp();
+  const { projects, can, instantiateTaskTemplate, instantiateProjectTemplate } = useApp();
   const [taskTemplates, setTaskTemplates] = useState([]);
   const [projectTemplates, setProjectTemplates] = useState([]);
   const [projectId, setProjectId] = useState(projects[0]?.id || null);
@@ -87,6 +87,8 @@ export default function TemplatesScreen() {
       else setProjectTemplates((all) => all.filter((entry) => entry.id !== template.id));
     } catch (e) { Alert.alert('Não foi possível excluir o modelo', e.message); }
   };
+
+  if (!can('createTask')) return <EmptyState icon="lock-closed-outline" text="Modelos são gerenciados por PO e Master." />;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">

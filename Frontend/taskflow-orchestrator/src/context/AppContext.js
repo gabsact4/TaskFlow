@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useContext, useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import { request, setToken, normalizeUser, normalizeProject, normalizeTask, apiStatus } from '../api';
 import { can as roleCan } from '../utils/permissions';
 
@@ -10,6 +11,10 @@ export function AppProvider({ children }) {
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [myNotifications, setMyNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [reminderDays, setReminderDays] = useState(2);
+  const refreshInFlight = useRef(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -18,32 +23,39 @@ export function AppProvider({ children }) {
   const getProject = useCallback((id) => projects.find((p) => p.id === String(id)), [projects]);
 
   const refresh = useCallback(async () => {
-    if (!user) return;
+    if (!user || refreshInFlight.current) return;
+    refreshInFlight.current = true;
     setLoading(true);
     setError('');
     try {
-      const [projectData, me] = await Promise.all([request('/projects'), request('/users/me')]);
+      const [projectData, me, reminder, notificationData, unreadData] = await Promise.all([request('/projects'), request('/users/me'), request('/users/me/reminder-days'), request('/notifications'), request('/notifications/unread-count')]);
+      setReminderDays(reminder);
+      setMyNotifications(notificationData.map((n) => ({ ...n, id: String(n.id), body: n.message, date: n.createdAt, read: !!n.readAt })));
+      setUnreadCount(unreadData.count);
       const projectRows = projectData.map(normalizeProject);
       setProjects(projectRows);
       setUser(normalizeUser(me));
-      if (me.role === 'ADMIN') {
+      if (['ADMIN', 'MASTER'].includes(me.role)) {
         const page = await request('/users?size=100');
         setUsers((page.content || []).map(normalizeUser));
       } else setUsers([normalizeUser(me)]);
       const taskRows = await Promise.all(projectRows.map((p) => request(`/tasks/project/${p.id}`)));
       setTasks(taskRows.flat().map(normalizeTask));
     } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
+    finally { setLoading(false); refreshInFlight.current = false; }
   }, [user?.id]);
 
   const openSession = async (result) => {
     setToken(result.accessToken);
     setUser(normalizeUser(result.user));
-    const [projectData, me] = await Promise.all([request('/projects'), request('/users/me')]);
+    const [projectData, me, reminder, notificationData, unreadData] = await Promise.all([request('/projects'), request('/users/me'), request('/users/me/reminder-days'), request('/notifications'), request('/notifications/unread-count')]);
+    setReminderDays(reminder);
+    setMyNotifications(notificationData.map((n) => ({ ...n, id: String(n.id), body: n.message, date: n.createdAt, read: !!n.readAt })));
+    setUnreadCount(unreadData.count);
     const projectRows = projectData.map(normalizeProject);
     setProjects(projectRows);
     setUser(normalizeUser(me));
-    if (me.role === 'ADMIN') {
+    if (['ADMIN', 'MASTER'].includes(me.role)) {
       const page = await request('/users?size=100');
       setUsers((page.content || []).map(normalizeUser));
     } else setUsers([normalizeUser(me)]);
@@ -69,12 +81,22 @@ export function AppProvider({ children }) {
     } catch (e) { setToken(null); setUser(null); setError(e.message); return { ok: false, error: e.message }; }
     finally { setBusy(false); }
   };
-  const logout = () => { setToken(null); setUser(null); setUsers([]); setProjects([]); setTasks([]); setError(''); };
+  const logout = () => { setToken(null); setUser(null); setUsers([]); setProjects([]); setTasks([]); setMyNotifications([]); setUnreadCount(0); setError(''); };
+
+  useEffect(() => {
+    if (!user) return undefined;
+    const timer = setInterval(() => refresh(), 3000);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refresh();
+    });
+    return () => { clearInterval(timer); subscription.remove(); };
+  }, [user?.id, refresh]);
 
   const visibleProjects = useMemo(() => projects, [projects]);
   const visibleTasks = useMemo(() => tasks.filter((task) => !task.parentTaskId), [tasks]);
-  const canManageTask = (task) => !!user && (task.creatorId === user.id || task.projectOwnerId === user.id || projects.find((p) => p.id === task.projectId)?.ownerId === user.id);
-  const canChangeStatus = (task) => canManageTask(task);
+  const isProjectOwner = (task) => projects.find((project) => project.id === task.projectId)?.ownerId === user?.id;
+  const canManageTask = (task) => !!user && (user.role === 'master' || (user.role === 'po' && isProjectOwner(task)));
+  const canChangeStatus = (task) => canManageTask(task) || (user?.role === 'dev' && task.assigneeId === user.id);
 
   const addProject = async (data) => {
     const project = normalizeProject(await request('/projects', { method: 'POST', body: JSON.stringify({ name: data.name, projectKey: data.projectKey, description: data.description }) }));
@@ -85,8 +107,15 @@ export function AppProvider({ children }) {
     setTasks((all) => [task, ...all]); return task;
   };
   const updateTask = async (task, changes) => {
-    const body = { title: changes.title ?? task.title, description: changes.description ?? task.description ?? '', status: apiStatus(changes.status ?? task.status), priority: (changes.priority ?? task.priority).toUpperCase(), dueDate: changes.dueDate === undefined ? task.dueDate : changes.dueDate || null, projectId: Number(changes.projectId ?? task.projectId), assigneeId: (changes.assigneeId ?? task.assigneeId) ? Number(changes.assigneeId ?? task.assigneeId) : null, recurrence: (changes.recurrence ?? task.recurrence ?? 'none').toUpperCase(), recurrenceEndDate: changes.recurrenceEndDate === undefined ? task.recurrenceEndDate || null : changes.recurrenceEndDate || null };
-    const saved = normalizeTask(await request(`/tasks/${task.id}`, { method: 'PUT', body: JSON.stringify(body) }));
+    const body = { title: changes.title ?? task.title, description: changes.description ?? task.description ?? '', status: apiStatus(changes.status ?? task.status), priority: (changes.priority ?? task.priority).toUpperCase(), dueDate: changes.dueDate === undefined ? task.dueDate : changes.dueDate || null, projectId: Number(changes.projectId ?? task.projectId), assigneeId: (changes.assigneeId ?? task.assigneeId) ? Number(changes.assigneeId ?? task.assigneeId) : null, recurrence: (changes.recurrence ?? task.recurrence ?? 'none').toUpperCase(), recurrenceEndDate: changes.recurrenceEndDate === undefined ? task.recurrenceEndDate || null : changes.recurrenceEndDate || null, version: Number(task.version || 0) };
+    let response;
+    try {
+      response = await request(`/tasks/${task.id}`, { method: 'PUT', body: JSON.stringify(body) });
+    } catch (error) {
+      if (error.status === 409) await refresh();
+      throw error;
+    }
+    const saved = normalizeTask(response);
     setTasks((all) => all.map((t) => t.id === saved.id ? saved : t)); return saved;
   };
   const setTaskStatus = async (id, status) => { const task = tasks.find((t) => t.id === String(id)); if (task) return updateTask(task, { status }); };
@@ -120,9 +149,26 @@ export function AppProvider({ children }) {
     return project;
   };
   const deleteTask = async (id) => { await request(`/tasks/${id}`, { method: 'DELETE' }); setTasks((all) => all.filter((t) => t.id !== String(id) && t.parentTaskId !== String(id))); };
-  const setUserRole = async (id, role) => { const saved = normalizeUser(await request(`/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role: role === 'admin' ? 'ADMIN' : 'USER' }) })); setUsers((all) => all.map((u) => u.id === saved.id ? saved : u)); };
+  const setUserRole = async (id, role) => { const saved = normalizeUser(await request(`/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role: ({ master: 'MASTER', po: 'PO', dev: 'DEV' })[role] }) })); setUsers((all) => all.map((u) => u.id === saved.id ? saved : u)); };
+  const createManagedUser = async (data) => {
+    const created = normalizeUser(await request('/users', { method: 'POST', body: JSON.stringify({ ...data, role: ({ master: 'MASTER', po: 'PO', dev: 'DEV' })[data.role] }) }));
+    setUsers((all) => [created, ...all]);
+    return created;
+  };
   const toggleUserActive = () => {};
   const noop = () => {};
+  const setPersonalReminderDays = async (days) => { const saved = await request(`/users/me/reminder-days/${days}`, { method: 'PUT' }); setReminderDays(saved); };
+  const markRead = async (id) => {
+    const existing = myNotifications.find((notification) => notification.id === String(id));
+    const saved = await request(`/notifications/${id}/read`, { method: 'PATCH' });
+    setMyNotifications((all) => all.map((n) => n.id === String(id) ? { ...n, read: !!saved.readAt } : n));
+    if (existing && !existing.read && saved.readAt) setUnreadCount((count) => Math.max(0, count - 1));
+  };
+  const markAllRead = async () => {
+    await request('/notifications/read-all', { method: 'POST' });
+    setMyNotifications((all) => all.map((n) => ({ ...n, read: true })));
+    setUnreadCount(0);
+  };
 
   const value = {
     user, users, projects, tasks, history: [], error, loading, busy, refresh,
@@ -130,7 +176,7 @@ export function AppProvider({ children }) {
     login, register, loginAs: noop, logout, addTask, setTaskStatus, setTaskPriority, setTaskRecurrence,
     toggleChecklistItem, addChecklistItem, deleteChecklistItem, deleteTask, updateTask, addProject,
     instantiateTaskTemplate, instantiateProjectTemplate,
-    setUserRole, toggleUserActive, myNotifications: [], unreadCount: 0, markRead: noop, markAllRead: noop,
+    setUserRole, createManagedUser, toggleUserActive, myNotifications, reminderDays, setPersonalReminderDays, unreadCount, markRead, markAllRead,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

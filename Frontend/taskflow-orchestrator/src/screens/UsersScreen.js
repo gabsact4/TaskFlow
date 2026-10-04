@@ -1,19 +1,47 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, FlatList, Alert } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { colors } from '../theme';
-import { Card, Avatar, Chip, ChipRow, Badge } from '../components/ui';
+import { Card, Avatar, Chip, ChipRow, Button, Field } from '../components/ui';
 import { ROLES, ROLE_ORDER } from '../utils/permissions';
 
 export default function UsersScreen() {
-  const { users, user: me, setUserRole } = useApp();
+  const { users, user: me, setUserRole, createManagedUser } = useApp();
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'dev' });
+  const [saving, setSaving] = useState(false);
+  const submit = async () => {
+    setSaving(true);
+    try {
+      await createManagedUser(form);
+      setForm({ name: '', email: '', password: '', role: 'dev' });
+      Alert.alert('Conta criada', `A conta ${form.email} foi cadastrada como ${ROLES[form.role].label}.`);
+    } catch (error) {
+      Alert.alert('Não foi possível cadastrar a conta', error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
     <FlatList
       style={{ flex: 1, backgroundColor: colors.bg }}
       data={users}
       keyExtractor={(u) => u.id}
       contentContainerStyle={{ padding: 16 }}
-      ListHeaderComponent={<Text style={{ color: colors.muted, marginBottom: 12 }}>Defina o papel de cada usuário. O backend oferece os papéis Administrador e Usuário; seu próprio papel não pode ser alterado por esta tela.</Text>}
+      ListHeaderComponent={(
+        <>
+          <Card>
+            <Text style={{ color: colors.text, fontWeight: '800', fontSize: 17 }}>Cadastrar pessoa</Text>
+            <Text style={{ color: colors.muted, marginTop: 4, marginBottom: 14 }}>Contas novas são criadas com acesso definido pelo Master.</Text>
+            <Field label="Nome" value={form.name} onChangeText={(name) => setForm((current) => ({ ...current, name }))} autoCapitalize="words" />
+            <Field label="E-mail" value={form.email} onChangeText={(email) => setForm((current) => ({ ...current, email }))} keyboardType="email-address" autoCapitalize="none" />
+            <Field label="Senha inicial (mínimo 8 caracteres)" value={form.password} onChangeText={(password) => setForm((current) => ({ ...current, password }))} secureTextEntry />
+            <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 7 }}>Papel de acesso</Text>
+            <ChipRow>{ROLE_ORDER.map((role) => <Chip key={role} label={ROLES[role].label} color={ROLES[role].color} active={form.role === role} onPress={() => setForm((current) => ({ ...current, role }))} />)}</ChipRow>
+            <Button title={saving ? 'Cadastrando…' : 'Cadastrar conta'} onPress={submit} disabled={saving || !form.name.trim() || !form.email.trim() || form.password.length < 8} style={{ marginTop: 12 }} />
+          </Card>
+          <Text style={{ color: colors.muted, marginBottom: 12 }}>Master supervisiona tudo; PO gerencia seus projetos; Dev trabalha apenas nas tarefas atribuídas. Seu próprio papel não pode ser alterado nesta tela.</Text>
+        </>
+      )}
       renderItem={({ item: u }) => {
         const isMe = u.id === me.id;
         return (

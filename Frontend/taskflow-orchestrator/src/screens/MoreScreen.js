@@ -10,8 +10,8 @@ export default function MoreScreen({ navigation }) {
   const { user, can, unreadCount, logout } = useApp();
   const items = [
     { icon: 'calendar-outline', label: 'Calendário', screen: 'Calendario', show: true },
-    { icon: 'copy-outline', label: 'Modelos de tarefas e projetos', screen: 'Modelos', show: true },
-    { icon: 'notifications-outline', label: 'Notificações (indisponível)', screen: 'Notificacoes', show: true, badge: unreadCount },
+    { icon: 'copy-outline', label: 'Modelos de tarefas e projetos', screen: 'Modelos', show: can('createTask') },
+    { icon: 'notifications-outline', label: 'Notificações', screen: 'Notificacoes', show: true, badge: unreadCount },
     { icon: 'time-outline', label: 'Histórico de alterações', screen: 'Historico', show: can('viewHistory') },
     { icon: 'people-outline', label: 'Usuários e níveis de acesso', screen: 'Usuarios', show: can('manageUsers') },
     { icon: 'shield-checkmark-outline', label: 'Permissões por nível', screen: 'Permissoes', show: true },

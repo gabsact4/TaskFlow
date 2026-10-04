@@ -27,13 +27,15 @@ export async function request(path, options = {}) {
       const body = await response.json();
       message = body.message || body.error || body.detail || message;
     } catch {}
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
   if (response.status === 204) return null;
   return response.json();
 }
 
-export const normalizeUser = (u) => ({ ...u, id: String(u.id), role: u.role === 'ADMIN' ? 'admin' : 'colaborador', active: true });
+export const normalizeUser = (u) => ({ ...u, id: String(u.id), role: ({ ADMIN: 'master', MASTER: 'master', PO: 'po', DEV: 'dev', USER: 'dev' })[u.role] || 'dev', active: true });
 export const normalizeProject = (p) => ({ ...p, id: String(p.id), ownerId: String(p.ownerId), memberIds: [String(p.ownerId)], color: '#4F46E5', deadline: null, status: p.status?.toLowerCase() });
 export const normalizeTask = (t) => ({
   ...t,

@@ -8,7 +8,7 @@ import { formatDate, isOverdue } from '../utils/format';
 
 export default function TaskDetailScreen({ route, navigation }) {
   const { id } = route.params;
-  const { tasks, getUser, getProject, canManageTask, setTaskStatus, setTaskPriority, setTaskRecurrence, deleteTask, addChecklistItem, toggleChecklistItem, deleteChecklistItem, addTask } = useApp();
+  const { tasks, getUser, getProject, canManageTask, canChangeStatus, setTaskStatus, setTaskPriority, setTaskRecurrence, deleteTask, addChecklistItem, toggleChecklistItem, deleteChecklistItem, addTask } = useApp();
   const [newItem, setNewItem] = React.useState('');
   const [newSubtask, setNewSubtask] = React.useState('');
   const [recurrenceEndDate, setRecurrenceEndDate] = React.useState('');
@@ -20,6 +20,7 @@ export default function TaskDetailScreen({ route, navigation }) {
   const project = getProject(task.projectId);
   const parentTask = task.parentTaskId ? tasks.find((entry) => entry.id === task.parentTaskId) : null;
   const canEdit = canManageTask(task);
+  const canWork = canChangeStatus(task);
   const subtasks = tasks.filter((entry) => entry.parentTaskId === id);
   const checklistDone = task.checklist.filter((item) => item.done).length;
   const confirmDelete = () =>
@@ -52,10 +53,10 @@ export default function TaskDetailScreen({ route, navigation }) {
       <SectionTitle>Status</SectionTitle>
       <ChipRow>
         {STATUS_ORDER.map((s) => (
-          <Chip key={s} label={STATUS[s].label} color={STATUS[s].color} active={task.status === s} disabled={!canEdit} onPress={() => setTaskStatus(id, s).catch((e) => Alert.alert('Não foi possível atualizar o status', e.message))} />
+          <Chip key={s} label={STATUS[s].label} color={STATUS[s].color} active={task.status === s} disabled={!canWork} onPress={() => setTaskStatus(id, s).catch((e) => Alert.alert('Não foi possível atualizar o status', e.message))} />
         ))}
       </ChipRow>
-      {!canEdit ? <Text style={{ color: colors.muted, fontSize: 12, marginTop: 6 }}>Somente quem criou a tarefa ou é proprietário do projeto pode alterá-la.</Text> : null}
+      {!canWork ? <Text style={{ color: colors.muted, fontSize: 12, marginTop: 6 }}>Dev só pode atualizar tarefas atribuídas a si; PO e Master gerenciam as tarefas conforme seu acesso.</Text> : null}
 
       <SectionTitle>Prioridade</SectionTitle>
       <ChipRow>
@@ -88,7 +89,7 @@ export default function TaskDetailScreen({ route, navigation }) {
         {task.checklist.length > 0 ? <ProgressBar value={checklistDone / task.checklist.length} color={colors.success} style={{ marginBottom: 10 }} /> : null}
         {task.checklist.map((item) => (
           <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 7 }}>
-            <TouchableOpacity disabled={!canEdit} onPress={() => toggleChecklistItem(id, item.id).catch((e) => Alert.alert('Não foi possível atualizar o item', e.message))} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <TouchableOpacity disabled={!canWork} onPress={() => toggleChecklistItem(id, item.id).catch((e) => Alert.alert('Não foi possível atualizar o item', e.message))} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name={item.done ? 'checkbox' : 'square-outline'} size={22} color={item.done ? colors.success : colors.muted} />
               <Text style={{ marginLeft: 9, color: item.done ? colors.muted : colors.text, textDecorationLine: item.done ? 'line-through' : 'none', flex: 1 }}>{item.text}</Text>
             </TouchableOpacity>
