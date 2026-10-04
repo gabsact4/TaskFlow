@@ -1,8 +1,11 @@
 # Gerenciamento de Usuários — TaskFlow Orchestrator
 
-Este módulo cobre as operações sobre usuários já cadastrados: consulta e
-atualização do próprio perfil, troca de senha, e administração completa
-(listagem, consulta, alteração de papel e exclusão) restrita a `ROLE_ADMIN`.
+Este módulo cobre autoatendimento e administração de contas. O Master administra
+usuários e papéis; PO administra apenas os próprios projetos; Dev trabalha
+somente nas tarefas atribuídas a si. O cadastro público cria contas Dev e não
+aceita papel informado pelo cliente. Para criar o primeiro Master, consulte
+`docs/NOTIFICACOES.md` e configure as variáveis de bootstrap antes do primeiro
+start com banco vazio.
 
 Todas as rotas abaixo exigem o cabeçalho `Authorization: Bearer <token>`
 (veja `docs/AUTENTICACAO.md` para como obter o token).
@@ -18,7 +21,7 @@ Retorna os dados do usuário autenticado.
   "id": 1,
   "name": "Gabriel Almeida",
   "email": "gabriel@exemplo.com",
-  "role": "USER"
+  "role": "DEV"
 }
 ```
 
@@ -52,9 +55,23 @@ Troca a senha do próprio usuário. Exige a senha atual.
 ### `DELETE /api/users/me`
 Exclui a própria conta. **Resposta**: `204 No Content`.
 
-## Administração (exige `ROLE_ADMIN`)
+## Administração (exige `ROLE_MASTER` ou `ROLE_ADMIN` legado)
 
-Chamadas por um usuário sem o papel `ADMIN` recebem `403 Forbidden`.
+Chamadas por um usuário sem papel Master/Admin recebem `403 Forbidden`.
+
+### `POST /api/users`
+Cadastra uma conta diretamente como `DEV`, `PO` ou `MASTER`; exige sessão Master/Admin.
+Senhas devem ter entre 8 e 72 caracteres.
+
+**Requisição**
+```json
+{
+  "name": "Ana Silva",
+  "email": "ana@exemplo.com",
+  "password": "senha-forte-123",
+  "role": "PO"
+}
+```
 
 ### `GET /api/users?page=0&size=20&sort=id`
 Lista usuários de forma paginada.
@@ -77,11 +94,12 @@ Lista usuários de forma paginada.
 Consulta um usuário específico por id. **Erro**: `404` se não existir.
 
 ### `PUT /api/users/{id}/role`
-Altera o papel de um usuário (ex.: promover a `ADMIN`).
+Altera o papel de outro usuário para `DEV`, `PO` ou `MASTER`. Não é permitido
+alterar o próprio papel nem rebaixar/remover o último Master.
 
 **Requisição**
 ```json
-{ "role": "ADMIN" }
+{ "role": "DEV" }
 ```
 
 ### `DELETE /api/users/{id}`
@@ -89,10 +107,10 @@ Exclui a conta de qualquer usuário. **Resposta**: `204 No Content`.
 
 ## Resumo de autorização
 
-| Rota | Autenticado | ADMIN |
+| Rota | Autenticado | MASTER/ADMIN |
 |---|---|---|
 | `GET/PUT /api/users/me`, `PATCH /api/users/me/password`, `DELETE /api/users/me` | ✅ | — |
-| `GET /api/users`, `GET /api/users/{id}` | — | ✅ |
+| `POST/GET /api/users`, `GET /api/users/{id}` | — | ✅ |
 | `PUT /api/users/{id}/role`, `DELETE /api/users/{id}` | — | ✅ |
 
 ## Decisões de implementação
@@ -102,7 +120,7 @@ Exclui a conta de qualquer usuário. **Resposta**: `204 No Content`.
   (`@AuthenticationPrincipal`), evitando que alguém manipule o próprio id na
   URL para acessar dados de terceiros.
 - **Autorização em dois níveis**: `SecurityConfig` garante que toda a API
-  exige autenticação; `@PreAuthorize("hasRole('ADMIN')")` no `UserController`
+  exige autenticação; `@PreAuthorize("hasAnyRole('MASTER', 'ADMIN')")` no `UserController`
   refina o acesso às rotas administrativas, habilitado via `@EnableMethodSecurity`.
 - **Troca de senha isolada do update de perfil**: evita que a senha seja
   alterada "de passagem" numa atualização de nome/e-mail, e sempre exige a

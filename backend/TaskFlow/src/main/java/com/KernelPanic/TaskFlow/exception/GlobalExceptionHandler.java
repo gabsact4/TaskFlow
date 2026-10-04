@@ -96,6 +96,14 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(status.value(), status.getReasonPhrase(), message));
     }
 
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleConcurrentUpdate(
+            org.springframework.orm.ObjectOptimisticLockingFailureException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(HttpStatus.CONFLICT.value(), "Conflito de edição",
+                        "Este registro foi alterado em outro dispositivo. Atualize os dados e tente novamente."));
+    }
+
 
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {

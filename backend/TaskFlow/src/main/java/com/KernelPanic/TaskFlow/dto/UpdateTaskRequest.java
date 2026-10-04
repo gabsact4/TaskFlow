@@ -18,5 +18,6 @@ public record UpdateTaskRequest(
         @NotNull Long projectId,
         Long assigneeId,
         TaskRecurrence recurrence,
-        LocalDate recurrenceEndDate
+        LocalDate recurrenceEndDate,
+        @NotNull Long version
 ) {}

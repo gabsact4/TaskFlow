@@ -30,8 +30,8 @@ public class ProjectController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProjectResponse>> list() {
-        return ResponseEntity.ok(projectService.list());
+    public ResponseEntity<List<ProjectResponse>> list(@AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(projectService.list(currentUser));
     }
 
     @GetMapping("/mine")
@@ -41,8 +41,8 @@ public class ProjectController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProjectResponse> get(@PathVariable Long id) {
-        return ResponseEntity.ok(projectService.get(id));
+    public ResponseEntity<ProjectResponse> get(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(projectService.get(id, currentUser));
     }
 
     @PutMapping("/{id}")

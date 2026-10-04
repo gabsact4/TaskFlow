@@ -68,6 +68,10 @@ public class User implements UserDetails {
     @Builder.Default
     private Role role = Role.USER;
 
+    @Column(name = "reminder_days", nullable = false)
+    @Builder.Default
+    private int reminderDays = 2;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

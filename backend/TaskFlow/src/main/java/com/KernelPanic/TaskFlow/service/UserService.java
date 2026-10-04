@@ -1,11 +1,13 @@
 package com.KernelPanic.TaskFlow.service;
 
 import com.KernelPanic.TaskFlow.dto.ChangePasswordRequest;
+import com.KernelPanic.TaskFlow.dto.CreateUserRequest;
 import com.KernelPanic.TaskFlow.dto.PageResponse;
 import com.KernelPanic.TaskFlow.dto.UpdateProfileRequest;
 import com.KernelPanic.TaskFlow.dto.UpdateRoleRequest;
 import com.KernelPanic.TaskFlow.dto.UserResponse;
 import com.KernelPanic.TaskFlow.entity.User;
+import com.KernelPanic.TaskFlow.enums.Role;
 import com.KernelPanic.TaskFlow.exception.EmailAlreadyExistsException;
 import com.KernelPanic.TaskFlow.exception.InvalidCurrentPasswordException;
 import com.KernelPanic.TaskFlow.exception.UserNotFoundException;
@@ -19,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Locale;
+import java.util.List;
 
 /**
  * Camada de aplicação responsável pelo gerenciamento de usuários já cadastrados:
@@ -35,6 +38,30 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Transactional
+    public UserResponse createUser(CreateUserRequest request) {
+        if (!List.of(Role.DEV, Role.PO, Role.MASTER).contains(request.role())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Papel inválido para uma nova conta.");
+        }
+        String normalizedEmail = request.email().trim().toLowerCase(Locale.ROOT);
+        if (userRepository.existsByEmailLookupHash(EmailLookupHash.of(normalizedEmail))) {
+            throw new EmailAlreadyExistsException(normalizedEmail);
+        }
+        User user = User.builder()
+                .name(request.name().trim())
+                .email(normalizedEmail)
+                .emailLookupHash(EmailLookupHash.of(normalizedEmail))
+                .password(passwordEncoder.encode(request.password()))
+                .role(request.role())
+                .build();
+        try {
+            return UserResponse.fromEntity(userRepository.saveAndFlush(user));
+        } catch (DataIntegrityViolationException exception) {
+            throw new EmailAlreadyExistsException(normalizedEmail);
+        }
+    }
 
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
@@ -81,18 +108,44 @@ public class UserService {
     }
 
     @Transactional
-    public UserResponse updateRole(Long id, UpdateRoleRequest request) {
+    public int setReminderDays(Long id, int days) {
+        if (days < 0 || days > 30) throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "O lembrete deve ser entre 0 e 30 dias.");
         User user = findUserOrThrow(id);
+        user.setReminderDays(days);
+        userRepository.save(user);
+        return days;
+    }
+
+    @Transactional
+    public UserResponse updateRole(Long id, UpdateRoleRequest request, User actor) {
+        User user = findUserOrThrow(id);
+        if (user.getId().equals(actor.getId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Não é permitido alterar o próprio papel.");
+        }
+        if (!List.of(Role.DEV, Role.PO, Role.MASTER).contains(request.role())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Papel inválido.");
+        }
+        if (user.getRole() == Role.MASTER && request.role() != Role.MASTER
+                && userRepository.countByRoleIn(List.of(Role.MASTER, Role.ADMIN)) <= 1) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT, "O sistema precisa manter ao menos um usuário Master.");
+        }
         user.setRole(request.role());
         return UserResponse.fromEntity(userRepository.save(user));
     }
 
     @Transactional
     public void deleteUser(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new UserNotFoundException(id);
+        User user = findUserOrThrow(id);
+        if (user.getRole() == Role.MASTER
+                && userRepository.countByRoleIn(List.of(Role.MASTER, Role.ADMIN)) <= 1) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT, "O sistema precisa manter ao menos um usuário Master.");
         }
-        userRepository.deleteById(id);
+        userRepository.delete(user);
     }
 
     private User findUserOrThrow(Long id) {

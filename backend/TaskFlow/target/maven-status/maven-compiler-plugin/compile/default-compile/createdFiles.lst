@@ -15,6 +15,7 @@ com/KernelPanic/TaskFlow/service/ProjectService.class
 com/KernelPanic/TaskFlow/TaskFlowApplication.class
 com/KernelPanic/TaskFlow/enums/TaskRecurrence.class
 com/KernelPanic/TaskFlow/dto/ProjectTemplateResponse.class
+com/KernelPanic/TaskFlow/config/MasterAccountInitializer.class
 com/KernelPanic/TaskFlow/service/UserService.class
 com/KernelPanic/TaskFlow/entity/User.class
 com/KernelPanic/TaskFlow/entity/ProjectTemplate$ProjectTemplateBuilder.class
@@ -28,6 +29,8 @@ com/KernelPanic/TaskFlow/repository/TaskChecklistItemRepository.class
 com/KernelPanic/TaskFlow/dto/RegisterRequest.class
 com/KernelPanic/TaskFlow/dto/LoginRequest.class
 com/KernelPanic/TaskFlow/security/EmailLookupHash.class
+com/KernelPanic/TaskFlow/service/NotificationService.class
+com/KernelPanic/TaskFlow/dto/NotificationResponse.class
 com/KernelPanic/TaskFlow/exception/ProjectKeyAlreadyExistsException.class
 com/KernelPanic/TaskFlow/service/TaskRecurrenceScheduler.class
 com/KernelPanic/TaskFlow/enums/Role.class
@@ -36,6 +39,7 @@ com/KernelPanic/TaskFlow/dto/TaskTemplateResponse.class
 com/KernelPanic/TaskFlow/dto/CreateTaskRequest.class
 com/KernelPanic/TaskFlow/service/WebAuthnService$1.class
 com/KernelPanic/TaskFlow/entity/Project$ProjectBuilder.class
+com/KernelPanic/TaskFlow/service/MasterBootstrapService.class
 com/KernelPanic/TaskFlow/entity/WebAuthnChallenge.class
 com/KernelPanic/TaskFlow/dto/CreateChecklistItemRequest.class
 com/KernelPanic/TaskFlow/dto/UpdateProfileRequest.class
@@ -45,6 +49,7 @@ com/KernelPanic/TaskFlow/service/WebAuthnChallengeService.class
 com/KernelPanic/TaskFlow/dto/UpdateProjectRequest.class
 com/KernelPanic/TaskFlow/entity/Project.class
 com/KernelPanic/TaskFlow/dto/InstantiateTaskTemplateRequest.class
+com/KernelPanic/TaskFlow/controller/NotificationController.class
 com/KernelPanic/TaskFlow/entity/WebAuthnChallenge$WebAuthnChallengeBuilder.class
 com/KernelPanic/TaskFlow/enums/TaskStatus.class
 com/KernelPanic/TaskFlow/entity/Task.class
@@ -53,6 +58,7 @@ com/KernelPanic/TaskFlow/exception/EmailAlreadyExistsException.class
 com/KernelPanic/TaskFlow/dto/ProjectTemplateRequest.class
 com/KernelPanic/TaskFlow/dto/TaskChecklistItemResponse.class
 com/KernelPanic/TaskFlow/security/EncryptedStringConverter.class
+com/KernelPanic/TaskFlow/repository/NotificationRepository.class
 com/KernelPanic/TaskFlow/controller/WebAuthnController.class
 com/KernelPanic/TaskFlow/dto/UpdateTaskRequest.class
 com/KernelPanic/TaskFlow/dto/UpdateRoleRequest.class
@@ -82,10 +88,12 @@ com/KernelPanic/TaskFlow/controller/ProjectTemplateController.class
 com/KernelPanic/TaskFlow/dto/ChangePasswordRequest.class
 com/KernelPanic/TaskFlow/entity/ProjectTemplate.class
 com/KernelPanic/TaskFlow/entity/TaskTemplate$TaskTemplateBuilder.class
+com/KernelPanic/TaskFlow/dto/CreateUserRequest.class
 com/KernelPanic/TaskFlow/dto/AuthResponse.class
 com/KernelPanic/TaskFlow/dto/UserResponse.class
 com/KernelPanic/TaskFlow/entity/TaskTemplate.class
 com/KernelPanic/TaskFlow/service/AuthService.class
+com/KernelPanic/TaskFlow/entity/Notification.class
 com/KernelPanic/TaskFlow/exception/InvalidWebAuthnException.class
 com/KernelPanic/TaskFlow/enums/ProjectStatus.class
 com/KernelPanic/TaskFlow/enums/WebAuthnCeremony.class

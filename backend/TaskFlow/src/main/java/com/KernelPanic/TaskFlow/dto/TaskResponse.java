@@ -24,6 +24,7 @@ public record TaskResponse(
         String creatorName,
         Long parentTaskId,
         List<TaskChecklistItemResponse> checklist,
+        Long version,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -46,6 +47,7 @@ public record TaskResponse(
                 task.getCreator().getName(),
                 task.getParentTask() == null ? null : task.getParentTask().getId(),
                 task.getChecklistItems().stream().map(TaskChecklistItemResponse::fromEntity).toList(),
+                task.getVersion(),
                 task.getCreatedAt(),
                 task.getUpdatedAt()
         );

@@ -40,6 +40,10 @@ public class TaskService {
     @Transactional
     public TaskResponse create(CreateTaskRequest request, User currentUser) {
         Project project = projectService.findEntity(request.projectId());
+        if (!isMaster(currentUser) && (currentUser.getRole() != com.KernelPanic.TaskFlow.enums.Role.PO
+            || !project.getOwner().getId().equals(currentUser.getId()))) {
+            throw new org.springframework.security.access.AccessDeniedException("PO só pode criar tarefas nos próprios projetos.");
+        }
         Task parentTask = request.parentTaskId() == null ? null : findEntity(request.parentTaskId());
         if (parentTask != null) {
             ensureCanManage(parentTask, currentUser);
@@ -49,6 +53,10 @@ public class TaskService {
         }
 
         User assignee = findAssignee(request.assigneeId());
+        if (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
+            || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER) {
+            throw new org.springframework.security.access.AccessDeniedException("Dev trabalha nas tarefas criadas e atribuídas pelo PO.");
+        }
         TaskRecurrence recurrence = request.recurrence() == null ? TaskRecurrence.NONE : request.recurrence();
         LocalDate recurrenceEndDate = recurrence == TaskRecurrence.NONE ? null : request.recurrenceEndDate();
         LocalDate nextOccurrenceDate = recurrence == TaskRecurrence.NONE ? null
@@ -70,31 +78,46 @@ public class TaskService {
                 .nextOccurrenceDate(nextOccurrenceDate)
                 .build();
 
-        return TaskResponse.fromEntity(taskRepository.save(task));
+        return TaskResponse.fromEntity(taskRepository.saveAndFlush(task));
     }
 
     @Transactional(readOnly = true)
-    public List<TaskResponse> list(Long projectId) {
-        projectService.findEntity(projectId);
-        return taskRepository.findByProjectIdOrderByCreatedAtDesc(projectId)
-                .stream()
-                .map(TaskResponse::fromEntity)
-                .toList();
+    public List<TaskResponse> list(Long projectId, User currentUser) {
+        Project project = projectService.findEntity(projectId);
+        if (isMaster(currentUser) || (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.PO
+            && project.getOwner().getId().equals(currentUser.getId()))) {
+            return taskRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream().map(TaskResponse::fromEntity).toList();
+        }
+        if (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
+            || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER) {
+            return taskRepository.findByProjectIdAndAssigneeIdOrderByCreatedAtDesc(projectId, currentUser.getId())
+                    .stream().map(TaskResponse::fromEntity).toList();
+        }
+        throw new org.springframework.security.access.AccessDeniedException("Você não tem acesso a este projeto.");
     }
 
     @Transactional(readOnly = true)
-    public List<TaskResponse> listByStatus(Long projectId, TaskStatus status) {
-        projectService.findEntity(projectId);
-        return taskRepository.findByProjectIdAndStatusOrderByCreatedAtDesc(projectId, status)
-                .stream()
-                .map(TaskResponse::fromEntity)
-                .toList();
+    public List<TaskResponse> listByStatus(Long projectId, TaskStatus status, User currentUser) {
+        return list(projectId, currentUser).stream().filter(task -> task.status().equals(status.name())).toList();
     }
 
     @Transactional(readOnly = true)
     public Task findEntity(Long id) {
         return taskRepository.findById(id)
                 .orElseThrow(() -> new TaskNotFoundException(id));
+    }
+
+    @Transactional(readOnly = true)
+    public TaskResponse get(Long id, User currentUser) {
+        Task task = findEntity(id);
+        boolean readable = isMaster(currentUser)
+                || (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.PO
+                    && task.getProject().getOwner().getId().equals(currentUser.getId()))
+                || ((currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
+                    || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER)
+                    && task.getAssignee() != null && task.getAssignee().getId().equals(currentUser.getId()));
+        if (!readable) throw new org.springframework.security.access.AccessDeniedException("Você não tem acesso a esta tarefa.");
+        return TaskResponse.fromEntity(task);
     }
 
     @Transactional(readOnly = true)
@@ -106,9 +129,43 @@ public class TaskService {
     public TaskResponse update(Long id, UpdateTaskRequest request, User currentUser) {
         Task task = findEntity(id);
         ensureCanManage(task, currentUser);
+        if (!Objects.equals(task.getVersion(), request.version())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Esta tarefa foi atualizada em outro dispositivo. Atualize os dados antes de tentar novamente.");
+        }
         LocalDate previousDueDate = task.getDueDate();
 
+        if ((currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
+            || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER)
+            && (!Objects.equals(task.getTitle(), request.title().trim())
+                || !Objects.equals(task.getDescription(), normalizeNullable(request.description()))
+                || task.getPriority() != request.priority()
+                || !Objects.equals(task.getDueDate(), request.dueDate())
+                || !Objects.equals(task.getProject().getId(), request.projectId())
+                || request.assigneeId() == null
+                || !Objects.equals(task.getAssignee().getId(), request.assigneeId())
+                || (request.recurrence() != null && task.getRecurrence() != request.recurrence())
+                || !Objects.equals(task.getRecurrenceEndDate(), request.recurrenceEndDate()))) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                "Dev só pode atualizar o status da tarefa atribuída a si.");
+        }
+
         Project newProject = projectService.findEntity(request.projectId());
+        if ((currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
+            || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER)
+                && (!newProject.getId().equals(task.getProject().getId())
+                || !currentUser.getId().equals(request.assigneeId()))) {
+            throw new org.springframework.security.access.AccessDeniedException("Dev não pode mover ou reatribuir tarefas.");
+        }
+        if (!isMaster(currentUser) && currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.PO
+                && !newProject.getOwner().getId().equals(currentUser.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("PO só pode editar tarefas dos próprios projetos.");
+        }
+        if (!isMaster(currentUser) && task.getCreator().getId().equals(currentUser.getId())
+                && currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
+                && task.getAssignee() != null && !task.getAssignee().getId().equals(currentUser.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Dev só pode editar tarefas atribuídas a si.");
+        }
         if (task.getParentTask() != null && !task.getParentTask().getProject().getId().equals(newProject.getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A subtarefa deve permanecer no projeto da tarefa principal.");
         }
@@ -144,12 +201,15 @@ public class TaskService {
             task.setNextOccurrenceDate(next);
         }
 
-        return TaskResponse.fromEntity(taskRepository.save(task));
+        return TaskResponse.fromEntity(taskRepository.saveAndFlush(task));
     }
 
     @Transactional
     public void delete(Long id, User currentUser) {
         Task task = findEntity(id);
+        if (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV) {
+            throw new org.springframework.security.access.AccessDeniedException("Dev não pode excluir tarefas.");
+        }
         ensureCanManage(task, currentUser);
         taskRepository.delete(task);
     }
@@ -165,6 +225,9 @@ public class TaskService {
     public TaskChecklistItemResponse addChecklistItem(Long taskId, CreateChecklistItemRequest request, User currentUser) {
         Task task = findEntity(taskId);
         ensureCanManage(task, currentUser);
+        if (isDeveloper(currentUser)) {
+            throw new org.springframework.security.access.AccessDeniedException("Dev não pode alterar a estrutura do checklist.");
+        }
         TaskChecklistItem item = TaskChecklistItem.builder()
                 .task(task)
                 .text(request.text().trim())
@@ -179,6 +242,9 @@ public class TaskService {
     public TaskChecklistItemResponse updateChecklistItem(Long taskId, Long itemId, UpdateChecklistItemRequest request, User currentUser) {
         Task task = findEntity(taskId);
         ensureCanManage(task, currentUser);
+        if (isDeveloper(currentUser) && (request.text() != null || request.done() == null)) {
+            throw new org.springframework.security.access.AccessDeniedException("Dev só pode marcar itens do checklist como feitos ou pendentes.");
+        }
         TaskChecklistItem item = checklistRepository.findByIdAndTaskId(itemId, taskId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item do checklist não encontrado."));
         if (request.text() != null) {
@@ -196,19 +262,40 @@ public class TaskService {
     public void deleteChecklistItem(Long taskId, Long itemId, User currentUser) {
         Task task = findEntity(taskId);
         ensureCanManage(task, currentUser);
+        if (isDeveloper(currentUser)) {
+            throw new org.springframework.security.access.AccessDeniedException("Dev não pode excluir itens do checklist.");
+        }
         TaskChecklistItem item = checklistRepository.findByIdAndTaskId(itemId, taskId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item do checklist não encontrado."));
         checklistRepository.delete(item);
     }
 
     public void ensureCanManage(Task task, User currentUser) {
-        boolean isCreator = task.getCreator().getId().equals(currentUser.getId());
+        boolean isMaster = isMaster(currentUser);
+        boolean isDevAssigned = (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
+            || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER)
+                && task.getAssignee() != null && task.getAssignee().getId().equals(currentUser.getId());
         boolean isProjectOwner = task.getProject().getOwner().getId().equals(currentUser.getId());
+        boolean isPoOwner = currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.PO && isProjectOwner;
 
-        if (!isCreator && !isProjectOwner) {
-            throw new org.springframework.security.access.AccessDeniedException(
-                    "Somente o criador da tarefa ou o proprietário do projeto pode realizar esta operação.");
+        if ((currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
+            || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER)
+            && !isMaster && !isDevAssigned) {
+            throw new org.springframework.security.access.AccessDeniedException("Dev só pode alterar tarefas atribuídas a si.");
         }
+        if (!isMaster && !isDevAssigned && !isPoOwner) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                "Somente o Master, o PO do projeto ou o Dev responsável pode realizar esta operação.");
+        }
+    }
+
+    private boolean isMaster(User user) {
+        return user.getRole() == com.KernelPanic.TaskFlow.enums.Role.MASTER || user.getRole() == com.KernelPanic.TaskFlow.enums.Role.ADMIN;
+    }
+
+    private boolean isDeveloper(User user) {
+        return user.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
+                || user.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER;
     }
 
     private void validateRecurrence(TaskRecurrence recurrence, LocalDate endDate, LocalDate nextOccurrenceDate) {

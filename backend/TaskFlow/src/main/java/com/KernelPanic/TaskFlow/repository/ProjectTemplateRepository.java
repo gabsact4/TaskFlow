@@ -7,5 +7,6 @@ import java.util.Optional;
 
 public interface ProjectTemplateRepository extends JpaRepository<ProjectTemplate, Long> {
     List<ProjectTemplate> findByOwnerIdOrderByCreatedAtDesc(Long ownerId);
+    List<ProjectTemplate> findAllByOrderByCreatedAtDesc();
     Optional<ProjectTemplate> findByIdAndOwnerId(Long id, Long ownerId);
 }

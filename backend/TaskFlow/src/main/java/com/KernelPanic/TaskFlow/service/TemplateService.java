@@ -7,6 +7,7 @@ import com.KernelPanic.TaskFlow.entity.User;
 import com.KernelPanic.TaskFlow.enums.TaskPriority;
 import com.KernelPanic.TaskFlow.enums.TaskRecurrence;
 import com.KernelPanic.TaskFlow.enums.TaskStatus;
+import com.KernelPanic.TaskFlow.enums.Role;
 import com.KernelPanic.TaskFlow.repository.ProjectTemplateRepository;
 import com.KernelPanic.TaskFlow.repository.TaskTemplateRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,11 +29,15 @@ public class TemplateService {
 
     @Transactional(readOnly = true)
     public List<TaskTemplateResponse> listTaskTemplates(User user) {
-        return taskTemplates.findByOwnerIdOrderByCreatedAtDesc(user.getId()).stream().map(TaskTemplateResponse::fromEntity).toList();
+        List<TaskTemplate> templates = isMaster(user)
+            ? taskTemplates.findAllByOrderByCreatedAtDesc()
+            : taskTemplates.findByOwnerIdOrderByCreatedAtDesc(user.getId());
+        return templates.stream().map(TaskTemplateResponse::fromEntity).toList();
     }
 
     @Transactional
     public TaskTemplateResponse createTaskTemplate(TaskTemplateRequest request, User user) {
+        ensureCanManageTemplates(user);
         TaskTemplate template = TaskTemplate.builder()
                 .name(request.name().trim())
                 .title(request.title().trim())
@@ -49,21 +53,19 @@ public class TemplateService {
 
     @Transactional
     public void deleteTaskTemplate(Long id, User user) {
-        TaskTemplate template = taskTemplates.findByIdAndOwnerId(id, user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Modelo de tarefa não encontrado."));
+        TaskTemplate template = findTaskTemplate(id, user);
         taskTemplates.delete(template);
     }
 
     @Transactional
     public TaskResponse instantiateTaskTemplate(Long id, InstantiateTaskTemplateRequest request, User user) {
-        TaskTemplate template = taskTemplates.findByIdAndOwnerId(id, user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Modelo de tarefa não encontrado."));
+        TaskTemplate template = findTaskTemplate(id, user);
         TaskResponse created = taskService.create(new CreateTaskRequest(
                 template.getTitle(), template.getDescription(), TaskStatus.TODO, template.getPriority(),
                 request.dueDate(), request.projectId(), request.assigneeId(), request.parentTaskId(),
                 template.getRecurrence(), template.getRecurrenceEndDate()), user);
         if (template.getChecklistItems() != null) {
-            for (String item : template.getChecklistItems().lines().map(String::trim).filter(s -> !s.isEmpty()).toList()) {
+            for (String item : template.getChecklistItems().lines().map(line -> line.trim()).filter(item -> !item.isEmpty()).toList()) {
                 taskService.addChecklistItem(created.id(), new CreateChecklistItemRequest(item), user);
             }
         }
@@ -72,11 +74,15 @@ public class TemplateService {
 
     @Transactional(readOnly = true)
     public List<ProjectTemplateResponse> listProjectTemplates(User user) {
-        return projectTemplates.findByOwnerIdOrderByCreatedAtDesc(user.getId()).stream().map(ProjectTemplateResponse::fromEntity).toList();
+        List<ProjectTemplate> templates = isMaster(user)
+            ? projectTemplates.findAllByOrderByCreatedAtDesc()
+            : projectTemplates.findByOwnerIdOrderByCreatedAtDesc(user.getId());
+        return templates.stream().map(ProjectTemplateResponse::fromEntity).toList();
     }
 
     @Transactional
     public ProjectTemplateResponse createProjectTemplate(ProjectTemplateRequest request, User user) {
+        ensureCanManageTemplates(user);
         ProjectTemplate template = ProjectTemplate.builder()
                 .name(request.name().trim())
                 .projectName(request.projectName().trim())
@@ -89,15 +95,13 @@ public class TemplateService {
 
     @Transactional
     public void deleteProjectTemplate(Long id, User user) {
-        ProjectTemplate template = projectTemplates.findByIdAndOwnerId(id, user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Modelo de projeto não encontrado."));
+        ProjectTemplate template = findProjectTemplate(id, user);
         projectTemplates.delete(template);
     }
 
     @Transactional
     public ProjectResponse instantiateProjectTemplate(Long id, InstantiateProjectTemplateRequest request, User user) {
-        ProjectTemplate template = projectTemplates.findByIdAndOwnerId(id, user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Modelo de projeto não encontrado."));
+        ProjectTemplate template = findProjectTemplate(id, user);
         ProjectResponse project = projectService.create(new CreateProjectRequest(template.getProjectName(), request.projectKey(), template.getDescription()), user);
         if (template.getStarterTasks() == null || template.getStarterTasks().isBlank()) return project;
 
@@ -131,6 +135,26 @@ public class TemplateService {
             else break;
         }
         return depth / 2;
+    }
+
+    private void ensureCanManageTemplates(User user) {
+        if (isMaster(user) || user.getRole() == Role.PO) return;
+        throw new org.springframework.security.access.AccessDeniedException(
+                "Somente PO e Master podem criar modelos.");
+    }
+
+    private boolean isMaster(User user) {
+        return user.getRole() == Role.MASTER || user.getRole() == Role.ADMIN;
+    }
+
+    private TaskTemplate findTaskTemplate(Long id, User user) {
+        return (isMaster(user) ? taskTemplates.findById(id) : taskTemplates.findByIdAndOwnerId(id, user.getId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Modelo de tarefa não encontrado."));
+    }
+
+    private ProjectTemplate findProjectTemplate(Long id, User user) {
+        return (isMaster(user) ? projectTemplates.findById(id) : projectTemplates.findByIdAndOwnerId(id, user.getId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Modelo de projeto não encontrado."));
     }
 
     private String normalize(String value) {

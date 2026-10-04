@@ -5,6 +5,9 @@ package com.KernelPanic.TaskFlow.enums;
  * Utilizado pelo Spring Security para autorização baseada em papel (ROLE_*).
  */
 public enum Role {
+    DEV,
+    PO,
+    MASTER,
     USER,
     ADMIN
 }

@@ -34,18 +34,19 @@ public class TaskController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TaskResponse> get(@PathVariable Long id) {
-        return ResponseEntity.ok(taskService.get(id));
+    public ResponseEntity<TaskResponse> get(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(taskService.get(id, currentUser));
     }
 
     @GetMapping("/project/{projectId}")
     public ResponseEntity<List<TaskResponse>> listByProject(
             @PathVariable Long projectId,
-            @RequestParam(required = false) TaskStatus status) {
+            @RequestParam(required = false) TaskStatus status,
+            @AuthenticationPrincipal User currentUser) {
         if (status == null) {
-            return ResponseEntity.ok(taskService.list(projectId));
+            return ResponseEntity.ok(taskService.list(projectId, currentUser));
         }
-        return ResponseEntity.ok(taskService.listByStatus(projectId, status));
+        return ResponseEntity.ok(taskService.listByStatus(projectId, status, currentUser));
     }
 
     @PutMapping("/{id}")

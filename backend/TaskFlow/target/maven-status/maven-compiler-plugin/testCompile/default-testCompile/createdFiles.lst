@@ -1,2 +1,5 @@
+com/KernelPanic/TaskFlow/service/TaskServicePermissionTests.class
 com/KernelPanic/TaskFlow/security/EncryptedStringConverterTests.class
+com/KernelPanic/TaskFlow/service/NotificationServiceTests.class
 com/KernelPanic/TaskFlow/TaskFlowApplicationTests.class
+com/KernelPanic/TaskFlow/service/MasterBootstrapServiceTests.class

@@ -11,7 +11,7 @@ Campos:
 - `projectKey` (única, usada como identificador curto do projeto)
 - `description`
 
-O projeto começa com status `ACTIVE`. O proprietário pode editar ou excluir o projeto. Ao excluir um projeto, suas tarefas são excluídas pelo relacionamento do banco.
+O projeto começa com status `ACTIVE`. Apenas o PO proprietário ou um Master pode editar ou excluir o projeto. Ao excluir um projeto, suas tarefas são excluídas pelo relacionamento do banco.
 
 Rotas:
 - `POST /api/projects`
@@ -41,7 +41,14 @@ Rotas:
 - `PUT /api/tasks/{id}`
 - `DELETE /api/tasks/{id}`
 
-O criador da tarefa ou proprietário do projeto pode editar/excluir a tarefa.
+O Master supervisiona e gerencia qualquer tarefa. O PO pode criar, editar e
+excluir tarefas apenas nos próprios projetos. O Dev só pode consultar tarefas
+atribuídas a si, alterar seu status e trabalhar no checklist; não pode mudar
+campos de planejamento, reatribuir, mover ou excluir tarefas. A API aplica essas
+regras no backend, além de ocultar projetos não atribuídos ao Dev.
+As respostas incluem `version`. O cliente deve enviar essa versão no `PUT
+/api/tasks/{id}`; se outro dispositivo já salvou uma versão mais nova, a API
+responde `409 Conflict` e o cliente deve recarregar antes de repetir a edição.
 
 ## Exemplo de criação de projeto
 

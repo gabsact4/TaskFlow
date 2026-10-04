@@ -8,6 +8,7 @@ import com.KernelPanic.TaskFlow.entity.User;
 import com.KernelPanic.TaskFlow.exception.ProjectKeyAlreadyExistsException;
 import com.KernelPanic.TaskFlow.exception.ProjectNotFoundException;
 import com.KernelPanic.TaskFlow.repository.ProjectRepository;
+import com.KernelPanic.TaskFlow.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,9 +21,14 @@ import java.util.Locale;
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
+    private final TaskRepository taskRepository;
 
     @Transactional
     public ProjectResponse create(CreateProjectRequest request, User currentUser) {
+        if (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
+            || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER) {
+            throw new org.springframework.security.access.AccessDeniedException("Dev não pode criar projetos.");
+        }
         String key = normalizeKey(request.projectKey());
 
         if (projectRepository.existsByProjectKeyIgnoreCase(key)) {
@@ -47,6 +53,19 @@ public class ProjectService {
     }
 
     @Transactional(readOnly = true)
+    public List<ProjectResponse> list(User currentUser) {
+        if (isMaster(currentUser)) return list();
+        if (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
+            || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER) {
+            return taskRepository.findProjectsByAssigneeId(currentUser.getId()).stream()
+                .distinct()
+                .map(ProjectResponse::fromEntity)
+                .toList();
+        }
+        return listMine(currentUser);
+    }
+
+    @Transactional(readOnly = true)
     public List<ProjectResponse> listMine(User currentUser) {
         return projectRepository.findByOwnerIdOrderByUpdatedAtDesc(currentUser.getId())
                 .stream()
@@ -61,8 +80,15 @@ public class ProjectService {
     }
 
     @Transactional(readOnly = true)
-    public ProjectResponse get(Long id) {
-        return ProjectResponse.fromEntity(findEntity(id));
+    public ProjectResponse get(Long id, User currentUser) {
+        Project project = findEntity(id);
+        boolean assignedDev = (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
+            || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER)
+                && taskRepository.existsByProjectIdAndAssigneeId(id, currentUser.getId());
+        if (!isMaster(currentUser) && !project.getOwner().getId().equals(currentUser.getId()) && !assignedDev) {
+            throw new org.springframework.security.access.AccessDeniedException("Você não tem acesso a este projeto.");
+        }
+        return ProjectResponse.fromEntity(project);
     }
 
     @Transactional
@@ -87,11 +113,15 @@ public class ProjectService {
     }
 
     public void ensureOwner(Project project, User currentUser) {
-        if (!project.getOwner().getId().equals(currentUser.getId())) {
+        if (!isMaster(currentUser)
+            && (currentUser.getRole() != com.KernelPanic.TaskFlow.enums.Role.PO
+                || !project.getOwner().getId().equals(currentUser.getId()))) {
             throw new org.springframework.security.access.AccessDeniedException(
                     "Somente o proprietário do projeto pode realizar esta operação.");
         }
     }
+
+    private boolean isMaster(User user) { return user.getRole() == com.KernelPanic.TaskFlow.enums.Role.MASTER || user.getRole() == com.KernelPanic.TaskFlow.enums.Role.ADMIN; }
 
     private String normalizeKey(String value) {
         return value.trim().toUpperCase(Locale.ROOT);

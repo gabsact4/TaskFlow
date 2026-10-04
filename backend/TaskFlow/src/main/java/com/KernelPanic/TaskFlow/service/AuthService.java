@@ -45,7 +45,7 @@ public class AuthService {
                 .email(normalizedEmail)
                 .emailLookupHash(EmailLookupHash.of(normalizedEmail))
                 .password(passwordEncoder.encode(request.password()))
-                .role(Role.USER)
+                .role(Role.DEV)
                 .build();
 
         try {
