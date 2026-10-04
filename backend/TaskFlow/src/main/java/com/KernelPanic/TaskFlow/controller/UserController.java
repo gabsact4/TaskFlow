@@ -1,5 +1,6 @@
 package com.KernelPanic.TaskFlow.controller;
 
+import com.KernelPanic.TaskFlow.dto.AssignableUserResponse;
 import com.KernelPanic.TaskFlow.dto.ChangePasswordRequest;
 import com.KernelPanic.TaskFlow.dto.CreateUserRequest;
 import com.KernelPanic.TaskFlow.dto.PageResponse;
@@ -90,6 +91,11 @@ public class UserController {
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
                 .body(userService.createUser(request));
+    }
+
+    @GetMapping("/assignable")
+    public ResponseEntity<java.util.List<AssignableUserResponse>> listAssignableUsers() {
+        return ResponseEntity.ok(userService.listAssignableUsers());
     }
 
     @GetMapping

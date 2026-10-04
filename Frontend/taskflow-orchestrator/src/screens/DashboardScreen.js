@@ -25,7 +25,7 @@ export default function DashboardScreen({ navigation }) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20, paddingTop: 24 }}>
       <View style={{ marginBottom: 18 }}>
-        <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text, letterSpacing: -0.4 }}>Olá, {user.name.split(' ')[0]} 👋</Text>
+        <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text, letterSpacing: -0.4 }}>Olá, {user.name.split(' ')[0]}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 4 }}>
           <Badge label={role.label} color={role.color} />
           <Text style={{ color: colors.muted, marginLeft: 8, fontSize: 12, fontWeight: '600' }}>{user.title}</Text>

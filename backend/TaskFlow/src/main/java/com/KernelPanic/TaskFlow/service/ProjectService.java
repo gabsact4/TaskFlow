@@ -9,6 +9,10 @@ import com.KernelPanic.TaskFlow.exception.ProjectKeyAlreadyExistsException;
 import com.KernelPanic.TaskFlow.exception.ProjectNotFoundException;
 import com.KernelPanic.TaskFlow.repository.ProjectRepository;
 import com.KernelPanic.TaskFlow.repository.TaskRepository;
+import com.KernelPanic.TaskFlow.repository.UserRepository;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +26,7 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final TaskRepository taskRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public ProjectResponse create(CreateProjectRequest request, User currentUser) {
@@ -40,6 +45,7 @@ public class ProjectService {
                 .projectKey(key)
                 .description(normalizeNullable(request.description()))
                 .owner(currentUser)
+                .members(resolveMembers(request.memberIds(), currentUser))
                 .build();
 
         return ProjectResponse.fromEntity(projectRepository.save(project));
@@ -57,12 +63,15 @@ public class ProjectService {
         if (isMaster(currentUser)) return list();
         if (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
             || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER) {
-            return taskRepository.findProjectsByAssigneeId(currentUser.getId()).stream()
-                .distinct()
-                .map(ProjectResponse::fromEntity)
-                .toList();
+            java.util.LinkedHashMap<Long, Project> visible = new java.util.LinkedHashMap<>();
+            projectRepository.findDistinctByMembers_IdOrderByUpdatedAtDesc(currentUser.getId()).forEach(p -> visible.put(p.getId(), p));
+            taskRepository.findProjectsByAssigneeId(currentUser.getId()).forEach(p -> visible.put(p.getId(), p));
+            return visible.values().stream().map(ProjectResponse::fromEntity).toList();
         }
-        return listMine(currentUser);
+        java.util.LinkedHashMap<Long, Project> visible = new java.util.LinkedHashMap<>();
+        projectRepository.findByOwnerIdOrderByUpdatedAtDesc(currentUser.getId()).forEach(p -> visible.put(p.getId(), p));
+        projectRepository.findDistinctByMembers_IdOrderByUpdatedAtDesc(currentUser.getId()).forEach(p -> visible.put(p.getId(), p));
+        return visible.values().stream().map(ProjectResponse::fromEntity).toList();
     }
 
     @Transactional(readOnly = true)
@@ -85,7 +94,8 @@ public class ProjectService {
         boolean assignedDev = (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
             || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER)
                 && taskRepository.existsByProjectIdAndAssigneeId(id, currentUser.getId());
-        if (!isMaster(currentUser) && !project.getOwner().getId().equals(currentUser.getId()) && !assignedDev) {
+        boolean projectMember = project.getMembers().stream().anyMatch(member -> Objects.equals(member.getId(), currentUser.getId()));
+        if (!isMaster(currentUser) && !project.getOwner().getId().equals(currentUser.getId()) && !projectMember && !assignedDev) {
             throw new org.springframework.security.access.AccessDeniedException("Você não tem acesso a este projeto.");
         }
         return ProjectResponse.fromEntity(project);
@@ -100,6 +110,9 @@ public class ProjectService {
         project.setDescription(normalizeNullable(request.description()));
         if (request.status() != null) {
             project.setStatus(request.status());
+        }
+        if (request.memberIds() != null) {
+            project.setMembers(resolveMembers(request.memberIds(), project.getOwner()));
         }
 
         return ProjectResponse.fromEntity(projectRepository.save(project));
@@ -119,6 +132,24 @@ public class ProjectService {
             throw new org.springframework.security.access.AccessDeniedException(
                     "Somente o proprietário do projeto pode realizar esta operação.");
         }
+    }
+
+    private Set<User> resolveMembers(List<Long> memberIds, User owner) {
+        Set<User> members = new HashSet<>();
+        if (memberIds != null) {
+            for (Long id : memberIds) {
+                if (id == null) continue;
+                User member = userRepository.findById(id).orElseThrow(() -> new com.KernelPanic.TaskFlow.exception.UserNotFoundException(id));
+                members.add(member);
+            }
+        }
+        members.removeIf(member -> Objects.equals(member.getId(), owner.getId()));
+        return members;
+    }
+
+    public boolean isMember(Project project, Long userId) {
+        return project.getOwner().getId().equals(userId)
+                || project.getMembers().stream().anyMatch(member -> Objects.equals(member.getId(), userId));
     }
 
     private boolean isMaster(User user) { return user.getRole() == com.KernelPanic.TaskFlow.enums.Role.MASTER || user.getRole() == com.KernelPanic.TaskFlow.enums.Role.ADMIN; }

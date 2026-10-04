@@ -10,4 +10,5 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     boolean existsByProjectKeyIgnoreCase(String projectKey);
     Optional<Project> findByProjectKeyIgnoreCase(String projectKey);
     List<Project> findByOwnerIdOrderByUpdatedAtDesc(Long ownerId);
+    List<Project> findDistinctByMembers_IdOrderByUpdatedAtDesc(Long userId);
 }

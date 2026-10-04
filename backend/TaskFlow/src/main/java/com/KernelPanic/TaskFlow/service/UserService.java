@@ -1,5 +1,6 @@
 package com.KernelPanic.TaskFlow.service;
 
+import com.KernelPanic.TaskFlow.dto.AssignableUserResponse;
 import com.KernelPanic.TaskFlow.dto.ChangePasswordRequest;
 import com.KernelPanic.TaskFlow.dto.CreateUserRequest;
 import com.KernelPanic.TaskFlow.dto.PageResponse;
@@ -66,6 +67,11 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
         return UserResponse.fromEntity(findUserOrThrow(id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<AssignableUserResponse> listAssignableUsers() {
+        return userRepository.findAll().stream().map(AssignableUserResponse::fromEntity).toList();
     }
 
     @Transactional(readOnly = true)

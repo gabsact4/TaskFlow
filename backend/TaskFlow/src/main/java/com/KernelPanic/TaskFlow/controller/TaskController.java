@@ -1,6 +1,8 @@
 package com.KernelPanic.TaskFlow.controller;
 
 import com.KernelPanic.TaskFlow.dto.CreateTaskRequest;
+import com.KernelPanic.TaskFlow.dto.CreateTaskWorkLogRequest;
+import com.KernelPanic.TaskFlow.dto.TaskWorkLogResponse;
 import com.KernelPanic.TaskFlow.dto.CreateChecklistItemRequest;
 import com.KernelPanic.TaskFlow.dto.UpdateChecklistItemRequest;
 import com.KernelPanic.TaskFlow.dto.TaskChecklistItemResponse;
@@ -55,6 +57,20 @@ public class TaskController {
             @Valid @RequestBody UpdateTaskRequest request,
             @AuthenticationPrincipal User currentUser) {
         return ResponseEntity.ok(taskService.update(id, request, currentUser));
+    }
+
+    @GetMapping("/{taskId}/work-logs")
+    public ResponseEntity<List<TaskWorkLogResponse>> listWorkLogs(
+            @PathVariable Long taskId, @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(taskService.listWorkLogs(taskId, currentUser));
+    }
+
+    @PostMapping("/{taskId}/work-logs")
+    public ResponseEntity<TaskWorkLogResponse> addWorkLog(
+            @PathVariable Long taskId,
+            @Valid @RequestBody CreateTaskWorkLogRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(taskService.addWorkLog(taskId, request, currentUser));
     }
 
     @DeleteMapping("/{id}")

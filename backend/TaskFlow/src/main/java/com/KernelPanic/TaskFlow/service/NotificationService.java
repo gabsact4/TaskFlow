@@ -58,6 +58,19 @@ public class NotificationService {
         notificationRepository.markAllRead(user.getId(), Instant.now());
     }
 
+    @Transactional
+    public void notifyProjectOwnerOfTaskStatus(Task task, TaskStatus status) {
+        if (status != TaskStatus.REVIEW && status != TaskStatus.DONE) return;
+        User owner = task.getProject().getOwner();
+        if (owner.getRole() != Role.PO) return;
+        String label = status == TaskStatus.REVIEW ? "está em teste" : "foi concluída";
+        String title = status == TaskStatus.REVIEW ? "Tarefa pronta para teste" : "Tarefa concluída";
+        String eventKey = "task:" + task.getId() + ":po:" + owner.getId() + ":status:" + status + ":version:" + task.getVersion();
+        createOnce(owner, task, "TASK_STATUS", title,
+                "A tarefa “" + task.getTitle() + "” " + label + " no projeto “" + task.getProject().getName() + "”.",
+                eventKey);
+    }
+
     /** Creates persistent, deduplicated alerts using each recipient's reminder preference. */
     @Scheduled(fixedDelayString = "${taskflow.notifications.scan-interval-ms:60000}")
     @Transactional

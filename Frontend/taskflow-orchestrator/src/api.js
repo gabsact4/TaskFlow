@@ -36,14 +36,14 @@ export async function request(path, options = {}) {
 }
 
 export const normalizeUser = (u) => ({ ...u, id: String(u.id), role: ({ ADMIN: 'master', MASTER: 'master', PO: 'po', DEV: 'dev', USER: 'dev' })[u.role] || 'dev', active: true });
-export const normalizeProject = (p) => ({ ...p, id: String(p.id), ownerId: String(p.ownerId), memberIds: [String(p.ownerId)], color: '#4F46E5', deadline: null, status: p.status?.toLowerCase() });
+export const normalizeProject = (p) => ({ ...p, id: String(p.id), ownerId: String(p.ownerId), memberIds: [...new Set([String(p.ownerId), ...(p.memberIds || []).map(String)])], color: '#4F46E5', deadline: null, status: p.status?.toLowerCase() });
 export const normalizeTask = (t) => ({
   ...t,
   id: String(t.id), projectId: String(t.projectId), assigneeId: t.assigneeId == null ? null : String(t.assigneeId),
   parentTaskId: t.parentTaskId == null ? null : String(t.parentTaskId),
-  creatorId: String(t.creatorId), status: ({ TODO: 'todo', IN_PROGRESS: 'doing', DONE: 'done' })[t.status] || 'todo',
+  creatorId: String(t.creatorId), status: ({ TODO: 'todo', IN_PROGRESS: 'doing', REVIEW: 'review', DONE: 'done' })[t.status] || 'todo',
   priority: (t.priority || 'MEDIUM').toLowerCase(),
   recurrence: (t.recurrence || 'NONE').toLowerCase(),
   checklist: (t.checklist || []).map((item) => ({ ...item, id: String(item.id) })),
 });
-export const apiStatus = (status) => ({ todo: 'TODO', doing: 'IN_PROGRESS', review: 'IN_PROGRESS', done: 'DONE' })[status] || 'TODO';
+export const apiStatus = (status) => ({ todo: 'TODO', doing: 'IN_PROGRESS', review: 'REVIEW', done: 'DONE' })[status] || 'TODO';

@@ -22,6 +22,8 @@ export function AppProvider({ children }) {
   const getUser = useCallback((id) => users.find((u) => u.id === String(id)), [users]);
   const getProject = useCallback((id) => projects.find((p) => p.id === String(id)), [projects]);
 
+
+
   const refresh = useCallback(async () => {
     if (!user || refreshInFlight.current) return;
     refreshInFlight.current = true;
@@ -35,10 +37,7 @@ export function AppProvider({ children }) {
       const projectRows = projectData.map(normalizeProject);
       setProjects(projectRows);
       setUser(normalizeUser(me));
-      if (['ADMIN', 'MASTER'].includes(me.role)) {
-        const page = await request('/users?size=100');
-        setUsers((page.content || []).map(normalizeUser));
-      } else setUsers([normalizeUser(me)]);
+      setUsers((await request('/users/assignable')).map(normalizeUser));
       const taskRows = await Promise.all(projectRows.map((p) => request(`/tasks/project/${p.id}`)));
       setTasks(taskRows.flat().map(normalizeTask));
     } catch (e) { setError(e.message); }
@@ -55,13 +54,12 @@ export function AppProvider({ children }) {
     const projectRows = projectData.map(normalizeProject);
     setProjects(projectRows);
     setUser(normalizeUser(me));
-    if (['ADMIN', 'MASTER'].includes(me.role)) {
-      const page = await request('/users?size=100');
-      setUsers((page.content || []).map(normalizeUser));
-    } else setUsers([normalizeUser(me)]);
+    setUsers((await request('/users/assignable')).map(normalizeUser));
     const taskRows = await Promise.all(projectRows.map((p) => request(`/tasks/project/${p.id}`)));
     setTasks(taskRows.flat().map(normalizeTask));
   };
+
+
 
   const login = async (email, password) => {
     setBusy(true); setError('');
@@ -72,10 +70,10 @@ export function AppProvider({ children }) {
     } catch (e) { setToken(null); setUser(null); setError(e.message); return { ok: false, error: e.message }; }
     finally { setBusy(false); }
   };
-  const register = async (name, email, password) => {
+  const register = async (name, email, password, role = 'DEV') => {
     setBusy(true); setError('');
     try {
-      const result = await request('/auth/register', { method: 'POST', body: JSON.stringify({ name: name.trim(), email: email.trim(), password }) });
+      const result = await request('/auth/register', { method: 'POST', body: JSON.stringify({ name: name.trim(), email: email.trim(), password, role }) });
       await openSession(result);
       return { ok: true };
     } catch (e) { setToken(null); setUser(null); setError(e.message); return { ok: false, error: e.message }; }
@@ -99,15 +97,21 @@ export function AppProvider({ children }) {
   const canChangeStatus = (task) => canManageTask(task) || (user?.role === 'dev' && task.assigneeId === user.id);
 
   const addProject = async (data) => {
-    const project = normalizeProject(await request('/projects', { method: 'POST', body: JSON.stringify({ name: data.name, projectKey: data.projectKey, description: data.description }) }));
+    const project = normalizeProject(await request('/projects', { method: 'POST', body: JSON.stringify({ name: data.name, projectKey: data.projectKey, description: data.description, memberIds: data.memberIds || [] }) }));
     setProjects((all) => [project, ...all]); return project;
+  };
+  const updateProject = async (project, changes) => {
+    const saved = normalizeProject(await request(`/projects/${project.id}`, { method: 'PUT', body: JSON.stringify({ name: changes.name ?? project.name, description: changes.description ?? project.description ?? '', status: (changes.status ?? project.status).toUpperCase(), memberIds: changes.memberIds ?? project.memberIds.filter((id) => id !== project.ownerId).map(Number) }) }));
+    setProjects((all) => all.map((item) => item.id === saved.id ? saved : item));
+    return saved;
   };
   const addTask = async (data) => {
     const task = normalizeTask(await request('/tasks', { method: 'POST', body: JSON.stringify({ title: data.title, description: data.description, status: 'TODO', priority: (data.priority || 'medium').toUpperCase(), dueDate: data.dueDate || null, projectId: Number(data.projectId), assigneeId: data.assigneeId ? Number(data.assigneeId) : null, parentTaskId: data.parentTaskId ? Number(data.parentTaskId) : null, recurrence: (data.recurrence || 'none').toUpperCase(), recurrenceEndDate: data.recurrenceEndDate || null }) }));
     setTasks((all) => [task, ...all]); return task;
   };
   const updateTask = async (task, changes) => {
-    const body = { title: changes.title ?? task.title, description: changes.description ?? task.description ?? '', status: apiStatus(changes.status ?? task.status), priority: (changes.priority ?? task.priority).toUpperCase(), dueDate: changes.dueDate === undefined ? task.dueDate : changes.dueDate || null, projectId: Number(changes.projectId ?? task.projectId), assigneeId: (changes.assigneeId ?? task.assigneeId) ? Number(changes.assigneeId ?? task.assigneeId) : null, recurrence: (changes.recurrence ?? task.recurrence ?? 'none').toUpperCase(), recurrenceEndDate: changes.recurrenceEndDate === undefined ? task.recurrenceEndDate || null : changes.recurrenceEndDate || null, version: Number(task.version || 0) };
+    const nextAssigneeId = Object.prototype.hasOwnProperty.call(changes, 'assigneeId') ? changes.assigneeId : task.assigneeId;
+    const body = { title: changes.title ?? task.title, description: changes.description ?? task.description ?? '', status: apiStatus(changes.status ?? task.status), priority: (changes.priority ?? task.priority).toUpperCase(), dueDate: changes.dueDate === undefined ? task.dueDate : changes.dueDate || null, projectId: Number(changes.projectId ?? task.projectId), assigneeId: nextAssigneeId ? Number(nextAssigneeId) : null, recurrence: (changes.recurrence ?? task.recurrence ?? 'none').toUpperCase(), recurrenceEndDate: changes.recurrenceEndDate === undefined ? task.recurrenceEndDate || null : changes.recurrenceEndDate || null, version: Number(task.version || 0) };
     let response;
     try {
       response = await request(`/tasks/${task.id}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -119,6 +123,7 @@ export function AppProvider({ children }) {
     setTasks((all) => all.map((t) => t.id === saved.id ? saved : t)); return saved;
   };
   const setTaskStatus = async (id, status) => { const task = tasks.find((t) => t.id === String(id)); if (task) return updateTask(task, { status }); };
+  const setTaskAssignee = async (id, assigneeId) => { const task = tasks.find((t) => t.id === String(id)); if (task) return updateTask(task, { assigneeId }); };
   const setTaskPriority = async (id, priority) => { const task = tasks.find((t) => t.id === String(id)); if (task) return updateTask(task, { priority }); };
   const setTaskRecurrence = async (id, recurrence, recurrenceEndDate) => { const task = tasks.find((t) => t.id === String(id)); if (task) return updateTask(task, { recurrence, recurrenceEndDate }); };
   const addChecklistItem = async (taskId, text) => {
@@ -173,8 +178,8 @@ export function AppProvider({ children }) {
   const value = {
     user, users, projects, tasks, history: [], error, loading, busy, refresh,
     visibleProjects, visibleTasks, can, canChangeStatus, canManageTask, getUser, getProject,
-    login, register, loginAs: noop, logout, addTask, setTaskStatus, setTaskPriority, setTaskRecurrence,
-    toggleChecklistItem, addChecklistItem, deleteChecklistItem, deleteTask, updateTask, addProject,
+    login, register, loginAs: noop, logout, addTask, setTaskStatus, setTaskAssignee, setTaskPriority, setTaskRecurrence,
+    toggleChecklistItem, addChecklistItem, deleteChecklistItem, deleteTask, updateTask, addProject, updateProject,
     instantiateTaskTemplate, instantiateProjectTemplate,
     setUserRole, createManagedUser, toggleUserActive, myNotifications, reminderDays, setPersonalReminderDays, unreadCount, markRead, markAllRead,
   };

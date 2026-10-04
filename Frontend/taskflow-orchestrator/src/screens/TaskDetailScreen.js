@@ -5,15 +5,28 @@ import { useApp } from '../context/AppContext';
 import { colors, STATUS, STATUS_ORDER, PRIORITY, PRIORITY_ORDER, RECURRENCE, RECURRENCE_ORDER } from '../theme';
 import { Card, Chip, ChipRow, Avatar, SectionTitle, Button, EmptyState, ProgressBar, Field } from '../components/ui';
 import { formatDate, isOverdue } from '../utils/format';
+import DatePickerField from '../components/DatePickerField';
+import { request } from '../api';
 
 export default function TaskDetailScreen({ route, navigation }) {
   const { id } = route.params;
-  const { tasks, getUser, getProject, canManageTask, canChangeStatus, setTaskStatus, setTaskPriority, setTaskRecurrence, deleteTask, addChecklistItem, toggleChecklistItem, deleteChecklistItem, addTask } = useApp();
+  const { tasks, users, getUser, getProject, canManageTask, canChangeStatus, setTaskStatus, setTaskAssignee, setTaskPriority, setTaskRecurrence, deleteTask, addChecklistItem, toggleChecklistItem, deleteChecklistItem, addTask } = useApp();
   const [newItem, setNewItem] = React.useState('');
   const [newSubtask, setNewSubtask] = React.useState('');
   const [recurrenceEndDate, setRecurrenceEndDate] = React.useState('');
+  const [workLogs, setWorkLogs] = React.useState([]);
+  const [workHours, setWorkHours] = React.useState('');
+  const [workComment, setWorkComment] = React.useState('');
+  const [workLogsError, setWorkLogsError] = React.useState('');
+  const [savingWorkLog, setSavingWorkLog] = React.useState(false);
   const task = tasks.find((t) => t.id === id);
   React.useEffect(() => setRecurrenceEndDate(task?.recurrenceEndDate || ''), [task?.id, task?.recurrenceEndDate]);
+  React.useEffect(() => {
+    let active = true;
+    if (!task) return () => { active = false; };
+    request(`/tasks/${id}/work-logs`).then((rows) => { if (active) setWorkLogs(rows); }).catch((error) => { if (active) setWorkLogsError(error.message); });
+    return () => { active = false; };
+  }, [id, !!task]);
   if (!task) return <EmptyState text="Tarefa não encontrada." />;
 
   const assignee = getUser(task.assigneeId);
@@ -23,6 +36,21 @@ export default function TaskDetailScreen({ route, navigation }) {
   const canWork = canChangeStatus(task);
   const subtasks = tasks.filter((entry) => entry.parentTaskId === id);
   const checklistDone = task.checklist.filter((item) => item.done).length;
+  const totalWorkMinutes = workLogs.reduce((total, entry) => total + entry.durationMinutes, 0);
+  const formatWorkedTime = (minutes) => `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}min` : ''}`;
+  const saveWorkLog = async () => {
+    const parsedHours = Number(workHours.trim().replace(',', '.'));
+    if (!Number.isFinite(parsedHours) || parsedHours <= 0 || parsedHours > 24) return Alert.alert('Horas inválidas', 'Informe um valor maior que zero e de até 24 horas.');
+    const durationMinutes = Math.round(parsedHours * 60);
+    if (durationMinutes < 1) return Alert.alert('Horas inválidas', 'O lançamento precisa ter pelo menos um minuto.');
+    setSavingWorkLog(true);
+    try {
+      const saved = await request(`/tasks/${id}/work-logs`, { method: 'POST', body: JSON.stringify({ durationMinutes, comment: workComment.trim() || null }) });
+      setWorkLogs((entries) => [saved, ...entries]);
+      setWorkHours(''); setWorkComment(''); setWorkLogsError('');
+    } catch (error) { Alert.alert('Não foi possível registrar as horas', error.message); }
+    finally { setSavingWorkLog(false); }
+  };
   const confirmDelete = () =>
     Alert.alert('Excluir tarefa', `Deseja excluir "${task.title}"?`, [
       { text: 'Cancelar', style: 'cancel' },
@@ -48,6 +76,29 @@ export default function TaskDetailScreen({ route, navigation }) {
             </View>
           ) : <Text>—</Text>}
         </View>
+        {canEdit && project ? <ChipRow style={{ marginTop: 8 }}>
+          <Chip label="Sem responsável" active={!task.assigneeId} onPress={() => setTaskAssignee(id, null).catch((e) => Alert.alert('Não foi possível alterar o responsável', e.message))} />
+          {users.filter((person) => project.memberIds.includes(person.id)).map((person) => <Chip key={person.id} label={person.name} active={task.assigneeId === person.id} onPress={() => setTaskAssignee(id, person.id).catch((e) => Alert.alert('Não foi possível alterar o responsável', e.message))} />)}
+        </ChipRow> : null}
+      </Card>
+
+      <SectionTitle right={<Text style={{ color: colors.primary, fontWeight: '800' }}>{formatWorkedTime(totalWorkMinutes)}</Text>}>Horas trabalhadas</SectionTitle>
+      <Card>
+        <Text style={{ color: colors.muted, marginBottom: 10 }}>Total registrado: {formatWorkedTime(totalWorkMinutes)}</Text>
+        {canWork || canEdit ? <>
+          <Field label="Adicionar horas" value={workHours} onChangeText={setWorkHours} keyboardType="decimal-pad" placeholder="Ex.: 1,5" />
+          <Field label="Observação (opcional)" value={workComment} onChangeText={setWorkComment} placeholder="O que foi feito?" maxLength={500} />
+          <Button title={savingWorkLog ? 'Registrando…' : 'Registrar horas'} icon="time-outline" onPress={saveWorkLog} disabled={savingWorkLog || !workHours.trim()} />
+        </> : null}
+        {workLogsError ? <Text style={{ color: colors.danger, marginTop: 8 }}>{workLogsError}</Text> : null}
+        {workLogs.map((entry) => <View key={entry.id} style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, marginTop: 10 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ color: colors.text, fontWeight: '700' }}>{formatWorkedTime(entry.durationMinutes)}</Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>{new Date(entry.createdAt).toLocaleString('pt-BR')}</Text>
+          </View>
+          <Text style={{ color: colors.muted, marginTop: 3 }}>{entry.userName}{entry.comment ? ` · ${entry.comment}` : ''}</Text>
+        </View>)}
+        {!workLogs.length && !workLogsError ? <Text style={{ color: colors.muted }}>Nenhum lançamento de horas ainda.</Text> : null}
       </Card>
 
       <SectionTitle>Status</SectionTitle>
@@ -75,11 +126,8 @@ export default function TaskDetailScreen({ route, navigation }) {
         <Card>
           <Text style={{ color: colors.muted, marginBottom: 8 }}>{task.nextOccurrenceDate ? `Próxima ocorrência: ${formatDate(task.nextOccurrenceDate)}` : 'Próxima ocorrência será agendada automaticamente.'}</Text>
           {canEdit ? <>
-            <Field label="Repetir até (opcional, AAAA-MM-DD)" value={recurrenceEndDate} onChangeText={setRecurrenceEndDate} placeholder="2026-12-31" />
-            <Button title="Salvar data final" variant="outline" onPress={() => {
-              if (recurrenceEndDate && !/^\d{4}-\d{2}-\d{2}$/.test(recurrenceEndDate)) return Alert.alert('Data inválida', 'Use o formato AAAA-MM-DD.');
-              setTaskRecurrence(id, task.recurrence, recurrenceEndDate || null).catch((e) => Alert.alert('Não foi possível salvar', e.message));
-            }} />
+            <DatePickerField label="Repetir até (opcional)" value={recurrenceEndDate} onChange={setRecurrenceEndDate} placeholder="Sem data final" />
+            <Button title="Salvar data final" variant="outline" onPress={() => setTaskRecurrence(id, task.recurrence, recurrenceEndDate || null).catch((e) => Alert.alert('Não foi possível salvar', e.message))} />
           </> : null}
         </Card>
       ) : null}

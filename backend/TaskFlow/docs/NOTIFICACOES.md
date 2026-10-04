@@ -38,8 +38,8 @@ Destinatários: responsável atribuído, criador da tarefa, proprietário PO do 
 - **Master**: supervisão e gerenciamento de todos os projetos/tarefas e usuários.
 - **PO**: cria e gerencia projetos próprios e todas as tarefas desses projetos.
 - **Dev**: só visualiza projetos com tarefas atribuídas a si, atualiza o status e marca itens de checklist como feitos/pendentes; não cria projetos/tarefas, altera planejamento ou a estrutura dos checklists, nem exclui tarefas.
-- O cadastro público sempre cria uma conta Dev. Somente Master/Admin autenticado pode criar ou promover para PO/Master; o próprio papel não pode ser alterado e o último Master não pode ser removido ou rebaixado.
-- Para criar o primeiro Master em um banco vazio, configure `TASKFLOW_BOOTSTRAP_MASTER_EMAIL`, `TASKFLOW_BOOTSTRAP_MASTER_NAME` e `TASKFLOW_BOOTSTRAP_MASTER_PASSWORD` (12–72 caracteres) antes do primeiro start. Se o banco já tiver usuários, configure um segredo `TASKFLOW_BOOTSTRAP_MASTER_TOKEN` aleatório com pelo menos 32 caracteres e chame uma única vez `POST /api/auth/bootstrap-master` com `X-TaskFlow-Bootstrap-Token`; a rota só opera quando ainda não existe Master e o token é consumido atomicamente. Mantenha os segredos fora do repositório.
+- O cadastro público permite criar contas Dev, PO ou Master. Cada conta Master tem escopo global de supervisão, sem aprovação prévia.
+- O cadastro público aceita diretamente Dev, PO e Master; contas Master podem supervisionar todos os projetos e usuários.
 
 ## Sincronização entre dispositivos
 

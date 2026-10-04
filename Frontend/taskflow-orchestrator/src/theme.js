@@ -34,9 +34,10 @@ export const shadows = {
 export const STATUS = {
   todo: { label: 'A fazer', color: '#6B7280' },
   doing: { label: 'Em andamento', color: '#0EA5E9' },
+  review: { label: 'Em teste', color: '#8B5CF6' },
   done: { label: 'Concluída', color: '#16A34A' },
 };
-export const STATUS_ORDER = ['todo', 'doing', 'done'];
+export const STATUS_ORDER = ['todo', 'doing', 'review', 'done'];
 
 export const PRIORITY = {
   low: { label: 'Baixa', color: '#16A34A' },

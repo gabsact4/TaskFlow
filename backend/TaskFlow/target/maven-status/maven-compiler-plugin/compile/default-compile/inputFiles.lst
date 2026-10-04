@@ -1,5 +1,5 @@
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/TaskFlowApplication.java
-/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/config/MasterAccountInitializer.java
+/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/config/FlywayChecksumRecoveryConfiguration.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/config/SecurityConfig.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/config/WebAuthnConfig.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/controller/AuthController.java
@@ -10,11 +10,13 @@
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/controller/TaskTemplateController.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/controller/UserController.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/controller/WebAuthnController.java
+/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/AssignableUserResponse.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/AuthResponse.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/ChangePasswordRequest.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/CreateChecklistItemRequest.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/CreateProjectRequest.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/CreateTaskRequest.java
+/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/CreateTaskWorkLogRequest.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/CreateUserRequest.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/InstantiateProjectTemplateRequest.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/InstantiateTaskTemplateRequest.java
@@ -29,6 +31,7 @@
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/TaskResponse.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/TaskTemplateRequest.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/TaskTemplateResponse.java
+/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/TaskWorkLogResponse.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/UpdateChecklistItemRequest.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/UpdateProfileRequest.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/dto/UpdateProjectRequest.java
@@ -44,6 +47,7 @@
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/entity/Task.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/entity/TaskChecklistItem.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/entity/TaskTemplate.java
+/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/entity/TaskWorkLog.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/entity/User.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/entity/WebAuthnChallenge.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/enums/ProjectStatus.java
@@ -68,6 +72,7 @@
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/repository/TaskChecklistItemRepository.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/repository/TaskRepository.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/repository/TaskTemplateRepository.java
+/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/repository/TaskWorkLogRepository.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/repository/UserRepository.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/repository/WebAuthnChallengeRepository.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/security/CustomUserDetailsService.java
@@ -78,7 +83,6 @@
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/security/UserDataEncryptionMigration.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/security/WebAuthnCredentialRepositoryAdapter.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/service/AuthService.java
-/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/service/MasterBootstrapService.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/service/NotificationService.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/service/ProjectService.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/main/java/com/KernelPanic/TaskFlow/service/TaskRecurrenceScheduler.java

@@ -3,6 +3,9 @@ import { ScrollView, Text, View, Alert } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { colors, PRIORITY, PRIORITY_ORDER, RECURRENCE, RECURRENCE_ORDER } from '../theme';
 import { Field, Button, Chip } from '../components/ui';
+import DatePickerField from '../components/DatePickerField';
+
+const today = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; };
 
 export default function NewTaskScreen({ route, navigation }) {
   const { visibleProjects, users, addTask } = useApp();
@@ -16,13 +19,11 @@ export default function NewTaskScreen({ route, navigation }) {
   const [recurrence, setRecurrence] = useState('none');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
 
-  const candidates = users.filter((u) => u.active);
+  const candidates = users.filter((u) => u.active && project?.memberIds?.includes(u.id));
 
   const save = () => {
     if (!title.trim()) return Alert.alert('Atenção', 'Informe o título da tarefa.');
     if (!projectId) return Alert.alert('Atenção', 'Selecione um projeto.');
-    if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return Alert.alert('Atenção', 'Use o prazo no formato AAAA-MM-DD.');
-    if (recurrenceEndDate && !/^\d{4}-\d{2}-\d{2}$/.test(recurrenceEndDate)) return Alert.alert('Atenção', 'Use a data final no formato AAAA-MM-DD.');
     addTask({ title: title.trim(), description: description.trim(), projectId, assigneeId, priority, dueDate: dueDate || null, recurrence, recurrenceEndDate: recurrenceEndDate || null })
       .then(() => navigation.goBack()).catch((e) => Alert.alert('Não foi possível criar a tarefa', e.message));
   };
@@ -62,12 +63,12 @@ export default function NewTaskScreen({ route, navigation }) {
         ))}
       </Wrap>
 
-      <Field label="Prazo (AAAA-MM-DD)" value={dueDate} onChangeText={setDueDate} placeholder="2026-10-15" />
+      <DatePickerField label="Prazo" value={dueDate} onChange={setDueDate} minDate={today()} />
       <Label>Repetição</Label>
       <Wrap>
         {RECURRENCE_ORDER.map((value) => <View key={value} style={{ marginBottom: 8 }}><Chip label={RECURRENCE[value].label} active={recurrence === value} onPress={() => setRecurrence(value)} /></View>)}
       </Wrap>
-      {recurrence !== 'none' ? <Field label="Repetir até (opcional, AAAA-MM-DD)" value={recurrenceEndDate} onChangeText={setRecurrenceEndDate} placeholder="2026-12-31" /> : null}
+      {recurrence !== 'none' ? <DatePickerField label="Repetir até (opcional)" value={recurrenceEndDate} onChange={setRecurrenceEndDate} minDate={today()} placeholder="Sem data final" /> : null}
       <Button title="Criar tarefa" icon="checkmark" onPress={save} />
     </ScrollView>
   );

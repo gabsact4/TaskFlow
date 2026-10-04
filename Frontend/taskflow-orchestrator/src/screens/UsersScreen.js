@@ -6,7 +6,7 @@ import { Card, Avatar, Chip, ChipRow, Button, Field } from '../components/ui';
 import { ROLES, ROLE_ORDER } from '../utils/permissions';
 
 export default function UsersScreen() {
-  const { users, user: me, setUserRole, createManagedUser } = useApp();
+  const { users, user: me, can, setUserRole, createManagedUser } = useApp();
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'dev' });
   const [saving, setSaving] = useState(false);
   const submit = async () => {
@@ -21,6 +21,14 @@ export default function UsersScreen() {
       setSaving(false);
     }
   };
+  if (!can('manageUsers')) {
+    return <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', padding: 24 }}>
+      <Card>
+        <Text style={{ color: colors.text, fontWeight: '800', fontSize: 18 }}>Acesso restrito</Text>
+        <Text style={{ color: colors.muted, marginTop: 8 }}>Somente Master pode cadastrar usuários ou definir perfis. Peça ao responsável Master para criar sua conta.</Text>
+      </Card>
+    </View>;
+  }
   return (
     <FlatList
       style={{ flex: 1, backgroundColor: colors.bg }}
@@ -31,15 +39,16 @@ export default function UsersScreen() {
         <>
           <Card>
             <Text style={{ color: colors.text, fontWeight: '800', fontSize: 17 }}>Cadastrar pessoa</Text>
-            <Text style={{ color: colors.muted, marginTop: 4, marginBottom: 14 }}>Contas novas são criadas com acesso definido pelo Master.</Text>
+            <Text style={{ color: colors.muted, marginTop: 4, marginBottom: 14 }}>Escolha Dev, PO ou Master para a nova conta:</Text>
             <Field label="Nome" value={form.name} onChangeText={(name) => setForm((current) => ({ ...current, name }))} autoCapitalize="words" />
             <Field label="E-mail" value={form.email} onChangeText={(email) => setForm((current) => ({ ...current, email }))} keyboardType="email-address" autoCapitalize="none" />
             <Field label="Senha inicial (mínimo 8 caracteres)" value={form.password} onChangeText={(password) => setForm((current) => ({ ...current, password }))} secureTextEntry />
-            <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 7 }}>Papel de acesso</Text>
-            <ChipRow>{ROLE_ORDER.map((role) => <Chip key={role} label={ROLES[role].label} color={ROLES[role].color} active={form.role === role} onPress={() => setForm((current) => ({ ...current, role }))} />)}</ChipRow>
+            <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 7 }}>Perfil</Text>
+            <ChipRow>{ROLE_ORDER.map((role) => <Chip key={role} label={`${form.role === role ? '✓ ' : ''}${ROLES[role].label}`} color={ROLES[role].color} active={form.role === role} onPress={() => setForm((current) => ({ ...current, role }))} />)}</ChipRow>
+            <Text style={{ color: ROLES[form.role].color, fontSize: 12, marginTop: 8, marginBottom: 4 }}>{ROLES[form.role].description}</Text>
             <Button title={saving ? 'Cadastrando…' : 'Cadastrar conta'} onPress={submit} disabled={saving || !form.name.trim() || !form.email.trim() || form.password.length < 8} style={{ marginTop: 12 }} />
           </Card>
-          <Text style={{ color: colors.muted, marginBottom: 12 }}>Master supervisiona tudo; PO gerencia seus projetos; Dev trabalha apenas nas tarefas atribuídas. Seu próprio papel não pode ser alterado nesta tela.</Text>
+          <Text style={{ color: colors.muted, marginBottom: 12 }}>Você pode mudar o perfil de outra pessoa abaixo. Por segurança, não é permitido alterar seu próprio perfil; o sistema também preserva sempre pelo menos um Master.</Text>
         </>
       )}
       renderItem={({ item: u }) => {

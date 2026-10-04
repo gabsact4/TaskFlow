@@ -34,6 +34,12 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        Role requestedRole = request.role() == null ? Role.DEV : request.role();
+        if (requestedRole != Role.DEV && requestedRole != Role.PO && requestedRole != Role.MASTER) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,
+                    "O cadastro público permite Dev, PO ou Master.");
+        }
         String normalizedEmail = normalize(request.email());
 
         if (userRepository.existsByEmailLookupHash(EmailLookupHash.of(normalizedEmail))) {
@@ -45,7 +51,7 @@ public class AuthService {
                 .email(normalizedEmail)
                 .emailLookupHash(EmailLookupHash.of(normalizedEmail))
                 .password(passwordEncoder.encode(request.password()))
-                .role(Role.DEV)
+                .role(requestedRole)
                 .build();
 
         try {

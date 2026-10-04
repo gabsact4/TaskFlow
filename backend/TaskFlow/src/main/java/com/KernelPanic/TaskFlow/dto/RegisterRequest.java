@@ -3,6 +3,7 @@ package com.KernelPanic.TaskFlow.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import com.KernelPanic.TaskFlow.enums.Role;
 
 /**
  * Corpo da requisição de cadastro de um novo usuário via e-mail e senha.
@@ -20,6 +21,11 @@ public record RegisterRequest(
 
         @NotBlank(message = "A senha é obrigatória")
         @Size(min = 8, max = 72, message = "A senha deve ter entre 8 e 72 caracteres")
-        String password
+        String password,
+
+        Role role
 ) {
+    public RegisterRequest(String name, String email, String password) {
+        this(name, email, password, null);
+    }
 }

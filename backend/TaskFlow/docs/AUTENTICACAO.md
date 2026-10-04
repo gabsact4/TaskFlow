@@ -108,11 +108,8 @@ passkey não exige e-mail nem senha.
 ### Consumindo endpoints protegidos
 
 Qualquer endpoint que não esteja na lista pública (`/api/auth/register`,
-`/api/auth/login`, `/api/auth/bootstrap-master` e
-`/api/auth/passkeys/login/**`) exige o cabeçalho JWT. A rota de bootstrap,
-embora pública quanto a JWT, exige o segredo one-time no cabeçalho
-`X-TaskFlow-Bootstrap-Token` e fica indisponível após o primeiro uso ou quando
-já existe um Master.
+`/api/auth/login` e `/api/auth/passkeys/login/**`) exige o cabeçalho JWT. O
+cadastro público aceita os papéis Dev, PO e Master; Masters têm acesso global.
 
 ```
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
@@ -130,13 +127,6 @@ curl -X POST http://localhost:8080/api/auth/register \
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"gabriel@exemplo.com","password":"senhaForte123"}'
-
-# Bootstrap do primeiro Master em banco que já possui contas Dev/PO.
-# Configure um token secreto de pelo menos 32 caracteres no backend e use-o uma vez.
-curl -X POST http://localhost:8080/api/auth/bootstrap-master \
-  -H "Content-Type: application/json" \
-  -H "X-TaskFlow-Bootstrap-Token: <SEGREDO_CONFIGURADO_NO_BACKEND>" \
-  -d '{"name":"Master inicial","email":"master@exemplo.com","password":"uma-senha-de-12-caracteres-ou-mais"}'
 
 # Chamada autenticada (substitua <TOKEN> pelo accessToken recebido)
 curl http://localhost:8080/api/algum-recurso \
@@ -169,11 +159,10 @@ curl http://localhost:8080/api/algum-recurso \
 - **Schema versionado via Flyway**: as migrations `V1__create_users_table.sql`
   e `V2__add_passkeys_and_encrypt_user_data.sql` controlam o schema; o Hibernate
   roda em modo `validate` (nunca gera DDL automaticamente).
-- **Papéis (`Role`)**: cadastro público cria sempre `DEV` e ignora qualquer
-  tentativa de escolher papel. Master/Admin autenticado pode criar e promover
-  contas para `DEV`, `PO` ou `MASTER`. O primeiro Master é provisionado pelas
-  variáveis `TASKFLOW_BOOTSTRAP_MASTER_*` somente quando o banco de usuários
-  ainda está vazio; consulte `docs/NOTIFICACOES.md`.
+- **Papéis (`Role`)**: no cadastro público, cada pessoa pode escolher `DEV`,
+  `PO` ou `MASTER`, sem token ou aprovação de outro Master. O perfil Master
+  tem acesso global de supervisão; Admin não pode ser criado publicamente.
+  Masters também podem criar e promover contas pela gestão de usuários.
 
 ## Configuração necessária (variáveis de ambiente)
 
@@ -188,10 +177,7 @@ curl http://localhost:8080/api/algum-recurso \
 | `WEBAUTHN_RP_NAME` | Opcional | Nome exibido no prompt de passkey (padrão: `TaskFlow`) |
 | `WEBAUTHN_ORIGINS` | Produção | Origens WebAuthn exatas separadas por vírgula (ex.: `https://taskflow.exemplo.com`) |
 | `CORS_ALLOWED_ORIGINS` | Produção | Origens do frontend autorizadas a chamar a API, separadas por vírgula |
-| `TASKFLOW_BOOTSTRAP_MASTER_EMAIL` | Primeira instalação | E-mail do primeiro Master; só usado se não houver nenhum usuário |
-| `TASKFLOW_BOOTSTRAP_MASTER_NAME` | Opcional | Nome do primeiro Master |
-| `TASKFLOW_BOOTSTRAP_MASTER_PASSWORD` | Primeira instalação | Senha inicial (12–72 caracteres); mantenha apenas em secret manager/ambiente seguro |
-| `TASKFLOW_BOOTSTRAP_MASTER_TOKEN` | Banco existente | Segredo aleatório de pelo menos 32 caracteres para o endpoint one-time `/api/auth/bootstrap-master` |
+
 
 > `JWT_SECRET` não possui fallback: sem essa variável, o backend não assina nem
 > valida tokens. Proteja `DATA_ENCRYPTION_KEY` e mantenha-a no backup de

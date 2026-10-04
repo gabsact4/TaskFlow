@@ -23,10 +23,11 @@ export default function NotificationsScreen({ navigation }) {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ padding: 16, paddingBottom: 0 }}>
         <Text style={{ color: colors.text, fontWeight: '700' }}>Lembrete personalizado</Text>
-        <Text style={{ color: colors.muted, marginTop: 3 }}>Avisar antes do vencimento:</Text>
+        <Text style={{ color: colors.muted, marginTop: 3 }}>Escolha com quantos dias de antecedência receber lembretes.</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-          {[0, 1, 2, 3, 7, 14, 21, 30].map((days) => <TouchableOpacity key={days} onPress={() => changeReminder(days)} style={{ paddingHorizontal: 11, paddingVertical: 7, borderRadius: 16, backgroundColor: reminderDays === days ? colors.primary : '#E5E7EB' }}><Text style={{ color: reminderDays === days ? '#fff' : colors.text, fontWeight: '600' }}>{days === 0 ? 'No dia' : `${days}d`}</Text></TouchableOpacity>)}
+          {[0, 1, 2, 3, 7, 14, 21, 30].map((days) => <TouchableOpacity key={days} accessibilityRole="button" accessibilityState={{ selected: reminderDays === days }} onPress={() => changeReminder(days)} style={{ paddingHorizontal: 11, paddingVertical: 7, borderRadius: 16, backgroundColor: reminderDays === days ? colors.primary : '#E5E7EB' }}><Text style={{ color: reminderDays === days ? '#fff' : colors.text, fontWeight: '600' }}>{days === 0 ? '0d' : `${days}d`}</Text></TouchableOpacity>)}
         </View>
+        <Text style={{ color: colors.muted, fontSize: 12, marginTop: 8 }}>Os alertas críticos de vencimento hoje, amanhã e tarefas atrasadas permanecem ativos mesmo com antecedência 0.</Text>
       </View>
       {unreadCount > 0 ? (
         <TouchableOpacity onPress={() => markAllRead().catch((error) => Alert.alert('Não foi possível atualizar as notificações', error.message))} style={{ padding: 14, paddingBottom: 0, alignItems: 'flex-end' }}>

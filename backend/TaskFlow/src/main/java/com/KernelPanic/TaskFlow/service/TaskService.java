@@ -1,6 +1,8 @@
 package com.KernelPanic.TaskFlow.service;
 
 import com.KernelPanic.TaskFlow.dto.CreateTaskRequest;
+import com.KernelPanic.TaskFlow.dto.CreateTaskWorkLogRequest;
+import com.KernelPanic.TaskFlow.dto.TaskWorkLogResponse;
 import com.KernelPanic.TaskFlow.dto.CreateChecklistItemRequest;
 import com.KernelPanic.TaskFlow.dto.UpdateChecklistItemRequest;
 import com.KernelPanic.TaskFlow.dto.TaskChecklistItemResponse;
@@ -9,6 +11,7 @@ import com.KernelPanic.TaskFlow.dto.UpdateTaskRequest;
 import com.KernelPanic.TaskFlow.entity.Project;
 import com.KernelPanic.TaskFlow.entity.Task;
 import com.KernelPanic.TaskFlow.entity.TaskChecklistItem;
+import com.KernelPanic.TaskFlow.entity.TaskWorkLog;
 import com.KernelPanic.TaskFlow.entity.User;
 import com.KernelPanic.TaskFlow.enums.TaskPriority;
 import com.KernelPanic.TaskFlow.enums.TaskStatus;
@@ -16,6 +19,7 @@ import com.KernelPanic.TaskFlow.enums.TaskRecurrence;
 import com.KernelPanic.TaskFlow.exception.TaskNotFoundException;
 import com.KernelPanic.TaskFlow.repository.TaskRepository;
 import com.KernelPanic.TaskFlow.repository.TaskChecklistItemRepository;
+import com.KernelPanic.TaskFlow.repository.TaskWorkLogRepository;
 import com.KernelPanic.TaskFlow.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,8 +38,10 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final TaskChecklistItemRepository checklistRepository;
+    private final TaskWorkLogRepository workLogRepository;
     private final UserRepository userRepository;
     private final ProjectService projectService;
+    private final NotificationService notificationService;
 
     @Transactional
     public TaskResponse create(CreateTaskRequest request, User currentUser) {
@@ -52,7 +58,16 @@ public class TaskService {
             }
         }
 
+        if (request.dueDate() != null && request.dueDate().isBefore(LocalDate.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O prazo da tarefa deve ser hoje ou uma data futura.");
+        }
+        if (request.recurrenceEndDate() != null && request.recurrenceEndDate().isBefore(LocalDate.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A data final da repetição deve ser hoje ou uma data futura.");
+        }
         User assignee = findAssignee(request.assigneeId());
+        if (assignee != null && !projectService.isMember(project, assignee.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O responsável precisa fazer parte do projeto.");
+        }
         if (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
             || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER) {
             throw new org.springframework.security.access.AccessDeniedException("Dev trabalha nas tarefas criadas e atribuídas pelo PO.");
@@ -89,7 +104,8 @@ public class TaskService {
             return taskRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream().map(TaskResponse::fromEntity).toList();
         }
         if (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
-            || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER) {
+            || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER
+            || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.PO) {
             return taskRepository.findByProjectIdAndAssigneeIdOrderByCreatedAtDesc(projectId, currentUser.getId())
                     .stream().map(TaskResponse::fromEntity).toList();
         }
@@ -113,9 +129,7 @@ public class TaskService {
         boolean readable = isMaster(currentUser)
                 || (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.PO
                     && task.getProject().getOwner().getId().equals(currentUser.getId()))
-                || ((currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
-                    || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER)
-                    && task.getAssignee() != null && task.getAssignee().getId().equals(currentUser.getId()));
+                || (task.getAssignee() != null && task.getAssignee().getId().equals(currentUser.getId()));
         if (!readable) throw new org.springframework.security.access.AccessDeniedException("Você não tem acesso a esta tarefa.");
         return TaskResponse.fromEntity(task);
     }
@@ -134,6 +148,7 @@ public class TaskService {
                     "Esta tarefa foi atualizada em outro dispositivo. Atualize os dados antes de tentar novamente.");
         }
         LocalDate previousDueDate = task.getDueDate();
+        TaskStatus previousStatus = task.getStatus();
 
         if ((currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
             || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER)
@@ -171,6 +186,9 @@ public class TaskService {
         }
 
         User assignee = findAssignee(request.assigneeId());
+        if (assignee != null && !projectService.isMember(newProject, assignee.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O responsável precisa fazer parte do projeto.");
+        }
 
         task.setTitle(request.title().trim());
         task.setDescription(normalizeNullable(request.description()));
@@ -201,7 +219,30 @@ public class TaskService {
             task.setNextOccurrenceDate(next);
         }
 
-        return TaskResponse.fromEntity(taskRepository.saveAndFlush(task));
+        Task saved = taskRepository.saveAndFlush(task);
+        if (saved.getStatus() != previousStatus) {
+            notificationService.notifyProjectOwnerOfTaskStatus(saved, saved.getStatus());
+        }
+        return TaskResponse.fromEntity(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TaskWorkLogResponse> listWorkLogs(Long taskId, User currentUser) {
+        get(taskId, currentUser);
+        return workLogRepository.findByTaskIdOrderByCreatedAtDesc(taskId).stream()
+                .map(TaskWorkLogResponse::fromEntity).toList();
+    }
+
+    @Transactional
+    public TaskWorkLogResponse addWorkLog(Long taskId, CreateTaskWorkLogRequest request, User currentUser) {
+        Task task = findEntity(taskId);
+        ensureCanManage(task, currentUser);
+        TaskWorkLog log = new TaskWorkLog();
+        log.setTask(task);
+        log.setUser(currentUser);
+        log.setDurationMinutes(request.durationMinutes());
+        log.setComment(request.comment() == null || request.comment().isBlank() ? null : request.comment().trim());
+        return TaskWorkLogResponse.fromEntity(workLogRepository.save(log));
     }
 
     @Transactional
