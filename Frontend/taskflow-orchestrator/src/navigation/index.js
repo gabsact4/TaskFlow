@@ -24,6 +24,11 @@ import HistoryScreen from '../screens/HistoryScreen';
 import PermissionsScreen from '../screens/PermissionsScreen';
 import MoreScreen from '../screens/MoreScreen';
 import TemplatesScreen from '../screens/TemplatesScreen';
+import TeamPlanningScreen from '../screens/TeamPlanningScreen';
+import ProductivityScreen from '../screens/ProductivityScreen';
+import FocusScreen from '../screens/FocusScreen';
+import ExportScreen from '../screens/ExportScreen';
+import SyncScreen from '../screens/SyncScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -101,6 +106,11 @@ export default function Navigation() {
             <Stack.Screen name="NovaTarefa" component={NewTaskScreen} options={{ title: 'Nova tarefa' }} />
             <Stack.Screen name="Modelos" component={TemplatesScreen} options={{ title: 'Modelos' }} />
             <Stack.Screen name="Calendario" component={CalendarScreen} options={{ title: 'Calendário' }} />
+            <Stack.Screen name="PlanejamentoEquipe" component={TeamPlanningScreen} options={{ title: 'Equipe e ausências' }} />
+            <Stack.Screen name="Produtividade" component={ProductivityScreen} options={{ title: 'Relatórios e metas' }} />
+            <Stack.Screen name="ModoFoco" component={FocusScreen} options={{ title: 'Modo Foco / Pomodoro' }} />
+            <Stack.Screen name="ExportarDados" component={ExportScreen} options={{ title: 'Exportar dados' }} />
+            <Stack.Screen name="Sincronizacao" component={SyncScreen} options={{ title: 'Sincronização offline' }} />
             <Stack.Screen name="Notificacoes" component={NotificationsScreen} options={{ title: 'Notificações' }} />
             <Stack.Screen name="Historico" component={HistoryScreen} options={{ title: 'Histórico' }} />
             <Stack.Screen name="Usuarios" component={UsersScreen} options={{ title: 'Usuários' }} />

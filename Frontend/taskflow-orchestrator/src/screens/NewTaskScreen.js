@@ -15,6 +15,8 @@ export default function NewTaskScreen({ route, navigation }) {
   const project = visibleProjects.find((p) => p.id === projectId);
   const [assigneeId, setAssigneeId] = useState(null);
   const [priority, setPriority] = useState('medium');
+  const [plannedStartDate, setPlannedStartDate] = useState('');
+  const [estimatedHours, setEstimatedHours] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [recurrence, setRecurrence] = useState('none');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
@@ -24,7 +26,10 @@ export default function NewTaskScreen({ route, navigation }) {
   const save = () => {
     if (!title.trim()) return Alert.alert('Atenção', 'Informe o título da tarefa.');
     if (!projectId) return Alert.alert('Atenção', 'Selecione um projeto.');
-    addTask({ title: title.trim(), description: description.trim(), projectId, assigneeId, priority, dueDate: dueDate || null, recurrence, recurrenceEndDate: recurrenceEndDate || null })
+    const effort = estimatedHours.trim() ? Number(estimatedHours.replace(',', '.')) : null;
+    if (effort !== null && (!Number.isFinite(effort) || effort < 0.25 || effort > 10000)) return Alert.alert('Estimativa inválida', 'Informe entre 0,25 e 10.000 horas.');
+    if (plannedStartDate && dueDate && plannedStartDate > dueDate) return Alert.alert('Período inválido', 'O início planejado deve ser anterior ou igual ao prazo.');
+    addTask({ title: title.trim(), description: description.trim(), projectId, assigneeId, priority, plannedStartDate: plannedStartDate || null, estimatedHours: effort, dueDate: dueDate || null, recurrence, recurrenceEndDate: recurrenceEndDate || null })
       .then(() => navigation.goBack()).catch((e) => Alert.alert('Não foi possível criar a tarefa', e.message));
   };
 
@@ -63,7 +68,9 @@ export default function NewTaskScreen({ route, navigation }) {
         ))}
       </Wrap>
 
-      <DatePickerField label="Prazo" value={dueDate} onChange={setDueDate} minDate={today()} />
+      <DatePickerField label="Início planejado (opcional)" value={plannedStartDate} onChange={setPlannedStartDate} minDate={today()} placeholder="Sem início definido" />
+      <Field label="Esforço estimado em horas (opcional)" value={estimatedHours} onChangeText={setEstimatedHours} keyboardType="decimal-pad" placeholder="Ex.: 6" />
+      <DatePickerField label="Prazo" value={dueDate} onChange={setDueDate} minDate={plannedStartDate || today()} />
       <Label>Repetição</Label>
       <Wrap>
         {RECURRENCE_ORDER.map((value) => <View key={value} style={{ marginBottom: 8 }}><Chip label={RECURRENCE[value].label} active={recurrence === value} onPress={() => setRecurrence(value)} /></View>)}

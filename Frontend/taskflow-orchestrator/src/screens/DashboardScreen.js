@@ -9,7 +9,7 @@ import TaskCard from '../components/TaskCard';
 import { isOverdue, projectProgress } from '../utils/format';
 
 export default function DashboardScreen({ navigation }) {
-  const { user, can, visibleTasks, visibleProjects } = useApp();
+  const { user, can, visibleTasks, visibleProjects, online, offlineQueue } = useApp();
   const role = ROLES[user.role];
   const mine = visibleTasks
     .filter((t) => t.assigneeId === user.id && t.status !== 'done')
@@ -31,6 +31,12 @@ export default function DashboardScreen({ navigation }) {
           <Text style={{ color: colors.muted, marginLeft: 8, fontSize: 12, fontWeight: '600' }}>{user.title}</Text>
         </View>
       </View>
+
+      {!online || offlineQueue.length > 0 ? <Card onPress={() => navigation.navigate('Sincronizacao')} style={{ flexDirection: 'row', alignItems: 'center', borderColor: offlineQueue.some((item) => item.status === 'conflict' || item.status === 'blocked') ? colors.danger + '66' : colors.warning + '66' }}>
+        <Ionicons name={online ? 'cloud-upload-outline' : 'cloud-offline-outline'} size={22} color={online ? colors.warning : colors.danger} />
+        <View style={{ flex: 1, marginLeft: 10 }}><Text style={{ color: colors.text, fontWeight: '800' }}>{online ? 'Alterações aguardando sincronização' : 'Trabalhando offline'}</Text><Text style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>{offlineQueue.length} item(ns) na fila · toque para ver detalhes</Text></View>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </Card> : null}
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 6 }}>
         {stats.map((st) => (

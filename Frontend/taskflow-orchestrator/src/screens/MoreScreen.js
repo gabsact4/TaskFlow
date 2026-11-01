@@ -7,9 +7,14 @@ import { Card, Avatar, Badge } from '../components/ui';
 import { ROLES } from '../utils/permissions';
 
 export default function MoreScreen({ navigation }) {
-  const { user, can, unreadCount, logout } = useApp();
+  const { user, can, unreadCount, offlineQueue, online, logout } = useApp();
   const items = [
     { icon: 'calendar-outline', label: 'Calendário', screen: 'Calendario', show: true },
+    { icon: 'people-outline', label: 'Carga da equipe e ausências', screen: 'PlanejamentoEquipe', show: true },
+    { icon: 'analytics-outline', label: 'Relatórios e metas de produtividade', screen: 'Produtividade', show: true },
+    { icon: 'flame-outline', label: 'Modo Foco / Pomodoro', screen: 'ModoFoco', show: true },
+    { icon: 'download-outline', label: 'Exportar CSV / JSON', screen: 'ExportarDados', show: true },
+    { icon: online ? 'cloud-done-outline' : 'cloud-offline-outline', label: 'Sincronização offline', screen: 'Sincronizacao', show: true, badge: offlineQueue.length || (!online ? '!' : 0) },
     { icon: 'copy-outline', label: 'Modelos de tarefas e projetos', screen: 'Modelos', show: can('createTask') },
     { icon: 'notifications-outline', label: 'Notificações', screen: 'Notificacoes', show: true, badge: unreadCount },
     { icon: 'time-outline', label: 'Histórico de alterações', screen: 'Historico', show: can('viewHistory') },

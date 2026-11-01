@@ -5,6 +5,7 @@ import { colors, STATUS_ORDER, STATUS } from '../theme';
 import { Card, Badge, ProgressBar, SectionTitle, Button, EmptyState, Chip } from '../components/ui';
 import TaskCard from '../components/TaskCard';
 import { projectProgress } from '../utils/format';
+import { request } from '../api';
 
 export default function ProjectDetailScreen({ route, navigation }) {
   const { id } = route.params;
@@ -12,6 +13,13 @@ export default function ProjectDetailScreen({ route, navigation }) {
   const project = getProject(id);
   const [memberIds, setMemberIds] = useState(null);
   const [savingMembers, setSavingMembers] = useState(false);
+  const [forecast, setForecast] = useState(null);
+  const [forecastError, setForecastError] = useState('');
+  React.useEffect(() => {
+    let active = true;
+    request(`/projects/${id}/forecast`).then((data) => { if (active) setForecast(data); }).catch((error) => { if (active) setForecastError(error.message); });
+    return () => { active = false; };
+  }, [id]);
   if (!project) return <EmptyState text="Projeto não encontrado." />;
 
   const tasks = visibleTasks.filter((t) => t.projectId === id);
@@ -39,6 +47,21 @@ export default function ProjectDetailScreen({ route, navigation }) {
             <Badge key={st} label={`${STATUS[st].label}: ${tasks.filter((t) => t.status === st).length}`} color={STATUS[st].color} style={{ marginRight: 6, marginBottom: 6 }} />
           ))}
         </View>
+      </Card>
+
+      <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ color: colors.text, fontSize: 17, fontWeight: '800', flex: 1 }}>Previsão de conclusão</Text>
+          {forecast ? <Badge label={`Confiança ${forecast.confidence === 'HIGH' ? 'alta' : forecast.confidence === 'MEDIUM' ? 'média' : 'baixa'}`} color={forecast.confidence === 'HIGH' ? colors.success : forecast.confidence === 'MEDIUM' ? colors.warning : colors.danger} /> : null}
+        </View>
+        {forecastError ? <Text style={{ color: colors.muted, marginTop: 8 }}>{forecastError}</Text> : forecast ? <>
+          <Text style={{ color: forecast.forecastCompletionDate ? colors.primary : colors.danger, fontSize: 23, fontWeight: '900', marginTop: 10 }}>
+            {forecast.forecastCompletionDate ? new Date(`${forecast.forecastCompletionDate}T12:00:00`).toLocaleDateString('pt-BR') : 'Estimativa insuficiente'}
+          </Text>
+          <Text style={{ color: colors.muted, marginTop: 4 }}>{forecast.remainingEstimatedHours} h estimadas restantes · capacidade base de {forecast.dailyCapacityHours} h/dia</Text>
+          {forecast.tasksWithoutEstimate > 0 ? <Text style={{ color: colors.warning, marginTop: 6 }}>{forecast.tasksWithoutEstimate} tarefa(s) aberta(s) sem estimativa; adicione esforço para melhorar a previsão.</Text> : null}
+          <Text style={{ color: colors.muted, fontSize: 12, marginTop: 6 }}>Previsão baseada no esforço restante, tempo registrado, capacidade da equipe e ausências aprovadas; fins de semana são excluídos.</Text>
+        </> : <Text style={{ color: colors.muted, marginTop: 8 }}>Calculando previsão…</Text>}
       </Card>
 
       <Card>

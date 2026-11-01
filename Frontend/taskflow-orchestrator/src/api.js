@@ -6,16 +6,20 @@ export const API_URL = (process.env.EXPO_PUBLIC_API_URL || `http://${host}:8080`
 let token = null;
 export const setToken = (value) => { token = value; };
 
-export async function request(path, options = {}) {
+export const authHeaders = () => token ? { Authorization: `Bearer ${token}` } : {};
+
+export async function requestRaw(path, options = {}) {
   let response;
+  const fetchOptions = options;
+  const isFormData = typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData;
   try {
     response = await fetch(`${API_URL}/api${path}`, {
-      ...options,
+      ...fetchOptions,
       headers: {
         Accept: 'application/json',
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options.headers,
+        ...(fetchOptions.body && !isFormData ? { 'Content-Type': 'application/json' } : {}),
+        ...authHeaders(),
+        ...fetchOptions.headers,
       },
     });
   } catch {
@@ -31,6 +35,11 @@ export async function request(path, options = {}) {
     error.status = response.status;
     throw error;
   }
+  return response;
+}
+
+export async function request(path, options = {}) {
+  const response = await requestRaw(path, options);
   if (response.status === 204) return null;
   return response.json();
 }
@@ -44,6 +53,8 @@ export const normalizeTask = (t) => ({
   creatorId: String(t.creatorId), status: ({ TODO: 'todo', IN_PROGRESS: 'doing', REVIEW: 'review', DONE: 'done' })[t.status] || 'todo',
   priority: (t.priority || 'MEDIUM').toLowerCase(),
   recurrence: (t.recurrence || 'NONE').toLowerCase(),
+  plannedStartDate: t.plannedStartDate || null,
+  estimatedHours: t.estimatedHours == null ? null : Number(t.estimatedHours),
   checklist: (t.checklist || []).map((item) => ({ ...item, id: String(item.id) })),
 });
 export const apiStatus = (status) => ({ todo: 'TODO', doing: 'IN_PROGRESS', review: 'REVIEW', done: 'DONE' })[status] || 'TODO';
