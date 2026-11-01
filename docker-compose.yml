@@ -29,6 +29,7 @@ services:
       TASKFLOW_FLYWAY_REPAIR_KNOWN_CHECKSUMS: ${TASKFLOW_FLYWAY_REPAIR_KNOWN_CHECKSUMS:-true}
       JWT_SECRET: ${JWT_SECRET:-local-only-change-this-jwt-secret-before-deployment}
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+      TASKFLOW_ATTACHMENTS_DIRECTORY: /app/taskflow-data/attachments
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
       WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-TaskFlow}
       WEBAUTHN_ORIGINS: ${WEBAUTHN_ORIGINS:-http://localhost:3000,http://localhost:8081,http://localhost:19006}
@@ -38,7 +39,54 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - taskflow-attachments:/app/taskflow-data/attachments
     restart: unless-stopped
+
+  backup:
+    image: mysql:8.4
+    entrypoint: ["/bin/bash", "/usr/local/bin/backup.sh"]
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: taskflow
+      DB_USERNAME: taskflow
+      DB_PASSWORD: ${DB_PASSWORD:-taskflow_dev_password}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:-local-only-change-backup-key}
+      BACKUP_DIRECTORY: /backups
+      ATTACHMENTS_DIRECTORY: /data/attachments
+    volumes:
+      - ./ops/backup.sh:/usr/local/bin/backup.sh:ro
+      - ./ops/restore.sh:/usr/local/bin/restore.sh:ro
+      - taskflow-attachments:/data/attachments:ro
+      - taskflow-backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  restore:
+    image: mysql:8.4
+    profiles: ["maintenance"]
+    entrypoint: ["/bin/bash", "/usr/local/bin/restore.sh"]
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: taskflow
+      DB_USERNAME: taskflow
+      DB_PASSWORD: ${DB_PASSWORD:-taskflow_dev_password}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:-local-only-change-backup-key}
+      ATTACHMENTS_DIRECTORY: /data/attachments
+    volumes:
+      - ./ops/restore.sh:/usr/local/bin/restore.sh:ro
+      - taskflow-attachments:/data/attachments
+      - taskflow-backups:/backups:ro
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   taskflow-mysql-data:
+  taskflow-attachments:
+  taskflow-backups:

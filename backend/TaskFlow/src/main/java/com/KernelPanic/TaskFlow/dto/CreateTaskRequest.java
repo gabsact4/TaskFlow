@@ -6,8 +6,11 @@ import com.KernelPanic.TaskFlow.enums.TaskStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.DecimalMax;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 
 public record CreateTaskRequest(
         @NotBlank @Size(max = 180) String title,
@@ -19,5 +22,8 @@ public record CreateTaskRequest(
         Long assigneeId,
         Long parentTaskId,
         TaskRecurrence recurrence,
-        LocalDate recurrenceEndDate
+        LocalDate recurrenceEndDate,
+        LocalDate plannedStartDate,
+        @DecimalMin("0.25") @DecimalMax("10000.00") BigDecimal estimatedHours,
+        @Size(max = 64) String clientMutationId
 ) {}

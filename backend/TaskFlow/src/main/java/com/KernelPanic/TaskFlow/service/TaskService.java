@@ -42,10 +42,20 @@ public class TaskService {
     private final UserRepository userRepository;
     private final ProjectService projectService;
     private final NotificationService notificationService;
+    private final ChangeHistoryService historyService;
 
     @Transactional
     public TaskResponse create(CreateTaskRequest request, User currentUser) {
         Project project = projectService.findEntity(request.projectId());
+        if (request.clientMutationId() != null && !request.clientMutationId().isBlank()) {
+            Task duplicate = taskRepository.findByClientMutationId(request.clientMutationId().trim()).orElse(null);
+            if (duplicate != null) {
+                if (!duplicate.getCreator().getId().equals(currentUser.getId()) || !duplicate.getProject().getId().equals(project.getId())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "A chave de sincronização já foi utilizada.");
+                }
+                return get(duplicate.getId(), currentUser);
+            }
+        }
         if (!isMaster(currentUser) && (currentUser.getRole() != com.KernelPanic.TaskFlow.enums.Role.PO
             || !project.getOwner().getId().equals(currentUser.getId()))) {
             throw new org.springframework.security.access.AccessDeniedException("PO só pode criar tarefas nos próprios projetos.");
@@ -61,6 +71,7 @@ public class TaskService {
         if (request.dueDate() != null && request.dueDate().isBefore(LocalDate.now())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O prazo da tarefa deve ser hoje ou uma data futura.");
         }
+        validatePlanningDates(request.plannedStartDate(), request.dueDate());
         if (request.recurrenceEndDate() != null && request.recurrenceEndDate().isBefore(LocalDate.now())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A data final da repetição deve ser hoje ou uma data futura.");
         }
@@ -82,8 +93,12 @@ public class TaskService {
                 .title(request.title().trim())
                 .description(normalizeNullable(request.description()))
                 .status(request.status() == null ? TaskStatus.TODO : request.status())
+                .completedAt(request.status() == TaskStatus.DONE ? java.time.Instant.now() : null)
+                .clientMutationId(request.clientMutationId() == null || request.clientMutationId().isBlank() ? null : request.clientMutationId().trim())
                 .priority(request.priority() == null ? TaskPriority.MEDIUM : request.priority())
                 .dueDate(request.dueDate())
+                .plannedStartDate(request.plannedStartDate())
+                .estimatedHours(request.estimatedHours())
                 .project(project)
                 .assignee(assignee)
                 .creator(currentUser)
@@ -93,14 +108,21 @@ public class TaskService {
                 .nextOccurrenceDate(nextOccurrenceDate)
                 .build();
 
-        return TaskResponse.fromEntity(taskRepository.saveAndFlush(task));
+        Task saved = taskRepository.saveAndFlush(task);
+        java.util.Map<String, Object> createdDetails = new java.util.LinkedHashMap<>();
+        createdDetails.put("title", saved.getTitle()); createdDetails.put("description", saved.getDescription());
+        createdDetails.put("status", saved.getStatus()); createdDetails.put("priority", saved.getPriority()); createdDetails.put("dueDate", saved.getDueDate());
+        createdDetails.put("plannedStartDate", saved.getPlannedStartDate()); createdDetails.put("estimatedHours", saved.getEstimatedHours());
+        createdDetails.put("assigneeId", saved.getAssignee() == null ? null : saved.getAssignee().getId()); createdDetails.put("recurrence", saved.getRecurrence());
+        historyService.record(saved.getProject(), saved, currentUser, "TASK", saved.getId(), "CREATED",
+            "criou a tarefa \"" + saved.getTitle() + "\"", createdDetails);
+        return TaskResponse.fromEntity(saved);
     }
 
     @Transactional(readOnly = true)
     public List<TaskResponse> list(Long projectId, User currentUser) {
         Project project = projectService.findEntity(projectId);
-        if (isMaster(currentUser) || (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.PO
-            && project.getOwner().getId().equals(currentUser.getId()))) {
+        if (isMaster(currentUser) || projectService.isMember(project, currentUser.getId())) {
             return taskRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream().map(TaskResponse::fromEntity).toList();
         }
         if (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
@@ -127,8 +149,7 @@ public class TaskService {
     public TaskResponse get(Long id, User currentUser) {
         Task task = findEntity(id);
         boolean readable = isMaster(currentUser)
-                || (currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.PO
-                    && task.getProject().getOwner().getId().equals(currentUser.getId()))
+                || projectService.isMember(task.getProject(), currentUser.getId())
                 || (task.getAssignee() != null && task.getAssignee().getId().equals(currentUser.getId()));
         if (!readable) throw new org.springframework.security.access.AccessDeniedException("Você não tem acesso a esta tarefa.");
         return TaskResponse.fromEntity(task);
@@ -149,6 +170,11 @@ public class TaskService {
         }
         LocalDate previousDueDate = task.getDueDate();
         TaskStatus previousStatus = task.getStatus();
+        java.util.Map<String, Object> before = new java.util.LinkedHashMap<>();
+        before.put("title", task.getTitle()); before.put("status", previousStatus); before.put("priority", task.getPriority());
+        before.put("dueDate", task.getDueDate()); before.put("assigneeId", task.getAssignee() == null ? null : task.getAssignee().getId());
+        before.put("description", task.getDescription()); before.put("plannedStartDate", task.getPlannedStartDate());
+        before.put("estimatedHours", task.getEstimatedHours()); before.put("recurrence", task.getRecurrence()); before.put("recurrenceEndDate", task.getRecurrenceEndDate());
 
         if ((currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.DEV
             || currentUser.getRole() == com.KernelPanic.TaskFlow.enums.Role.USER)
@@ -156,6 +182,8 @@ public class TaskService {
                 || !Objects.equals(task.getDescription(), normalizeNullable(request.description()))
                 || task.getPriority() != request.priority()
                 || !Objects.equals(task.getDueDate(), request.dueDate())
+                || !Objects.equals(task.getPlannedStartDate(), request.plannedStartDate())
+                || !Objects.equals(task.getEstimatedHours(), request.estimatedHours())
                 || !Objects.equals(task.getProject().getId(), request.projectId())
                 || request.assigneeId() == null
                 || !Objects.equals(task.getAssignee().getId(), request.assigneeId())
@@ -184,6 +212,7 @@ public class TaskService {
         if (task.getParentTask() != null && !task.getParentTask().getProject().getId().equals(newProject.getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A subtarefa deve permanecer no projeto da tarefa principal.");
         }
+        validatePlanningDates(request.plannedStartDate(), request.dueDate());
 
         User assignee = findAssignee(request.assigneeId());
         if (assignee != null && !projectService.isMember(newProject, assignee.getId())) {
@@ -193,8 +222,13 @@ public class TaskService {
         task.setTitle(request.title().trim());
         task.setDescription(normalizeNullable(request.description()));
         task.setStatus(request.status());
+        task.setCompletedAt(request.status() == TaskStatus.DONE
+            ? (previousStatus == TaskStatus.DONE ? task.getCompletedAt() : java.time.Instant.now())
+            : null);
         task.setPriority(request.priority());
         task.setDueDate(request.dueDate());
+        task.setPlannedStartDate(request.plannedStartDate());
+        task.setEstimatedHours(request.estimatedHours());
         task.setProject(newProject);
         task.setAssignee(assignee);
         if (request.recurrence() != null) {
@@ -223,6 +257,13 @@ public class TaskService {
         if (saved.getStatus() != previousStatus) {
             notificationService.notifyProjectOwnerOfTaskStatus(saved, saved.getStatus());
         }
+        java.util.Map<String, Object> after = new java.util.LinkedHashMap<>();
+        after.put("title", saved.getTitle()); after.put("status", saved.getStatus()); after.put("priority", saved.getPriority());
+        after.put("dueDate", saved.getDueDate()); after.put("assigneeId", saved.getAssignee() == null ? null : saved.getAssignee().getId());
+        after.put("description", saved.getDescription()); after.put("plannedStartDate", saved.getPlannedStartDate());
+        after.put("estimatedHours", saved.getEstimatedHours()); after.put("recurrence", saved.getRecurrence()); after.put("recurrenceEndDate", saved.getRecurrenceEndDate());
+        historyService.record(saved.getProject(), saved, currentUser, "TASK", saved.getId(), "UPDATED",
+            "atualizou a tarefa \"" + saved.getTitle() + "\"", java.util.Map.of("before", before, "after", after));
         return TaskResponse.fromEntity(saved);
     }
 
@@ -242,7 +283,11 @@ public class TaskService {
         log.setUser(currentUser);
         log.setDurationMinutes(request.durationMinutes());
         log.setComment(request.comment() == null || request.comment().isBlank() ? null : request.comment().trim());
-        return TaskWorkLogResponse.fromEntity(workLogRepository.save(log));
+        TaskWorkLog saved = workLogRepository.save(log);
+        historyService.record(task.getProject(), task, currentUser, "WORK_LOG", saved.getId(), "CREATED",
+            "registrou " + saved.getDurationMinutes() + " minuto(s) em \"" + task.getTitle() + "\"",
+            java.util.Map.of("durationMinutes", saved.getDurationMinutes(), "comment", saved.getComment() == null ? "" : saved.getComment()));
+        return TaskWorkLogResponse.fromEntity(saved);
     }
 
     @Transactional
@@ -252,6 +297,8 @@ public class TaskService {
             throw new org.springframework.security.access.AccessDeniedException("Dev não pode excluir tarefas.");
         }
         ensureCanManage(task, currentUser);
+        historyService.record(task.getProject(), task, currentUser, "TASK", task.getId(), "DELETED",
+            "excluiu a tarefa \"" + task.getTitle() + "\"", java.util.Map.of("title", task.getTitle()));
         taskRepository.delete(task);
     }
 
@@ -276,6 +323,8 @@ public class TaskService {
                 .build();
         TaskChecklistItem saved = checklistRepository.save(item);
         task.getChecklistItems().add(saved);
+        historyService.record(task.getProject(), task, currentUser, "CHECKLIST", saved.getId(), "CREATED",
+            "adicionou um item ao checklist de \"" + task.getTitle() + "\"", java.util.Map.of("text", saved.getText()));
         return TaskChecklistItemResponse.fromEntity(saved);
     }
 
@@ -296,7 +345,10 @@ public class TaskService {
         if (request.text() == null && request.done() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe o texto ou o estado do item.");
         }
-        return TaskChecklistItemResponse.fromEntity(checklistRepository.save(item));
+        TaskChecklistItem saved = checklistRepository.save(item);
+        historyService.record(task.getProject(), task, currentUser, "CHECKLIST", saved.getId(), "UPDATED",
+            "atualizou o checklist de \"" + task.getTitle() + "\"", java.util.Map.of("text", saved.getText(), "done", saved.isDone()));
+        return TaskChecklistItemResponse.fromEntity(saved);
     }
 
     @Transactional
@@ -308,6 +360,8 @@ public class TaskService {
         }
         TaskChecklistItem item = checklistRepository.findByIdAndTaskId(itemId, taskId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item do checklist não encontrado."));
+        historyService.record(task.getProject(), task, currentUser, "CHECKLIST", item.getId(), "DELETED",
+            "removeu um item do checklist de \"" + task.getTitle() + "\"", java.util.Map.of("text", item.getText()));
         checklistRepository.delete(item);
     }
 
@@ -327,6 +381,21 @@ public class TaskService {
         if (!isMaster && !isDevAssigned && !isPoOwner) {
             throw new org.springframework.security.access.AccessDeniedException(
                 "Somente o Master, o PO do projeto ou o Dev responsável pode realizar esta operação.");
+        }
+    }
+
+    public void ensureCanAccessTask(Task task, User currentUser) {
+        boolean assigned = task.getAssignee() != null && task.getAssignee().getId().equals(currentUser.getId());
+        boolean member = projectService.isMember(task.getProject(), currentUser.getId());
+        if (!isMaster(currentUser) && !assigned && !member) {
+            throw new org.springframework.security.access.AccessDeniedException("Você não participa deste projeto.");
+        }
+    }
+
+    private void validatePlanningDates(LocalDate plannedStartDate, LocalDate dueDate) {
+        if (plannedStartDate != null && dueDate != null && plannedStartDate.isAfter(dueDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "O início planejado deve ser anterior ou igual ao prazo.");
         }
     }
 

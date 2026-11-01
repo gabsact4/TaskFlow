@@ -1,5 +1,10 @@
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/test/java/com/KernelPanic/TaskFlow/TaskFlowApplicationTests.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/test/java/com/KernelPanic/TaskFlow/security/EncryptedStringConverterTests.java
-/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/test/java/com/KernelPanic/TaskFlow/service/MasterBootstrapServiceTests.java
+/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/test/java/com/KernelPanic/TaskFlow/service/ChangeHistoryServiceTests.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/test/java/com/KernelPanic/TaskFlow/service/NotificationServiceTests.java
+/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/test/java/com/KernelPanic/TaskFlow/service/ProductivityServiceTests.java
+/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/test/java/com/KernelPanic/TaskFlow/service/ProjectForecastServiceTests.java
 /home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/test/java/com/KernelPanic/TaskFlow/service/TaskServicePermissionTests.java
+/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/test/java/com/KernelPanic/TaskFlow/service/TaskTimerServiceTests.java
+/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/test/java/com/KernelPanic/TaskFlow/service/TeamAnalyticsServiceTests.java
+/home/lazaro/Documentos/Github/TaskFlow/backend/TaskFlow/src/test/java/com/KernelPanic/TaskFlow/service/UserAbsenceServiceTests.java

@@ -63,7 +63,7 @@ public class TemplateService {
         TaskResponse created = taskService.create(new CreateTaskRequest(
                 template.getTitle(), template.getDescription(), TaskStatus.TODO, template.getPriority(),
                 request.dueDate(), request.projectId(), request.assigneeId(), request.parentTaskId(),
-                template.getRecurrence(), template.getRecurrenceEndDate()), user);
+                template.getRecurrence(), template.getRecurrenceEndDate(), null, null, null), user);
         if (template.getChecklistItems() != null) {
             for (String item : template.getChecklistItems().lines().map(line -> line.trim()).filter(item -> !item.isEmpty()).toList()) {
                 taskService.addChecklistItem(created.id(), new CreateChecklistItemRequest(item), user);
@@ -119,7 +119,7 @@ public class TemplateService {
             }
             TaskResponse task = taskService.create(new CreateTaskRequest(
                     rawLine.trim(), null, TaskStatus.TODO, TaskPriority.MEDIUM, null,
-                    project.id(), null, parentId, TaskRecurrence.NONE, null), user);
+                    project.id(), null, parentId, TaskRecurrence.NONE, null, null, null, null), user);
             if (taskIdsByDepth.size() == depth) taskIdsByDepth.add(task.id());
             else taskIdsByDepth.set(depth, task.id());
         }

@@ -27,6 +27,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final ChangeHistoryService historyService;
 
     @Transactional
     public ProjectResponse create(CreateProjectRequest request, User currentUser) {
@@ -48,7 +49,10 @@ public class ProjectService {
                 .members(resolveMembers(request.memberIds(), currentUser))
                 .build();
 
-        return ProjectResponse.fromEntity(projectRepository.save(project));
+        Project saved = projectRepository.save(project);
+        historyService.record(saved, null, currentUser, "PROJECT", saved.getId(), "CREATED",
+            "criou o projeto \"" + saved.getName() + "\"", java.util.Map.of("name", saved.getName(), "projectKey", saved.getProjectKey()));
+        return ProjectResponse.fromEntity(saved);
     }
 
     @Transactional(readOnly = true)
@@ -106,6 +110,10 @@ public class ProjectService {
         Project project = findEntity(id);
         ensureOwner(project, currentUser);
 
+        java.util.Map<String, Object> before = new java.util.LinkedHashMap<>();
+        before.put("name", project.getName()); before.put("description", project.getDescription()); before.put("status", project.getStatus());
+        before.put("memberIds", project.getMembers().stream().map(member -> member.getId()).toList());
+
         project.setName(request.name().trim());
         project.setDescription(normalizeNullable(request.description()));
         if (request.status() != null) {
@@ -115,13 +123,21 @@ public class ProjectService {
             project.setMembers(resolveMembers(request.memberIds(), project.getOwner()));
         }
 
-        return ProjectResponse.fromEntity(projectRepository.save(project));
+        Project saved = projectRepository.save(project);
+        java.util.Map<String, Object> after = new java.util.LinkedHashMap<>();
+        after.put("name", saved.getName()); after.put("description", saved.getDescription()); after.put("status", saved.getStatus());
+        after.put("memberIds", saved.getMembers().stream().map(member -> member.getId()).toList());
+        historyService.record(saved, null, currentUser, "PROJECT", saved.getId(), "UPDATED",
+            "atualizou o projeto \"" + saved.getName() + "\"", java.util.Map.of("before", before, "after", after));
+        return ProjectResponse.fromEntity(saved);
     }
 
     @Transactional
     public void delete(Long id, User currentUser) {
         Project project = findEntity(id);
         ensureOwner(project, currentUser);
+        historyService.record(project, null, currentUser, "PROJECT", project.getId(), "DELETED",
+            "excluiu o projeto \"" + project.getName() + "\"", java.util.Map.of("name", project.getName(), "projectKey", project.getProjectKey()));
         projectRepository.delete(project);
     }
 

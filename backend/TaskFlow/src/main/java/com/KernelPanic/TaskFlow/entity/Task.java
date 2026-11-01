@@ -58,6 +58,12 @@ public class Task {
     @Column(name = "due_date")
     private LocalDate dueDate;
 
+    @Column(name = "planned_start_date")
+    private LocalDate plannedStartDate;
+
+    @Column(name = "estimated_hours", precision = 7, scale = 2)
+    private java.math.BigDecimal estimatedHours;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
@@ -84,6 +90,12 @@ public class Task {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
+    @Column(name = "client_mutation_id", unique = true, length = 64)
+    private String clientMutationId;
 
     @PrePersist
     protected void onCreate() {

@@ -12,6 +12,7 @@ FROM eclipse-temurin:25-jre-jammy AS runtime
 
 WORKDIR /app
 RUN groupadd --system app && useradd --system --gid app --home-dir /app app
+RUN mkdir -p /app/taskflow-data/attachments && chown -R app:app /app/taskflow-data
 COPY --from=build --chown=app:app /workspace/target/TaskFlow-*.jar /app/app.jar
 
 USER app

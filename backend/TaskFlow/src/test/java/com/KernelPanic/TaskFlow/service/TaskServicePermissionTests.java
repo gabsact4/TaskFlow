@@ -42,6 +42,12 @@ class TaskServicePermissionTests {
     @Mock
     private ProjectService projectService;
 
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
+    private ChangeHistoryService historyService;
+
     @InjectMocks
     private TaskService taskService;
 
@@ -77,6 +83,7 @@ class TaskServicePermissionTests {
         Task task = task(12L, 3L, user(1L, Role.PO), dev);
         when(taskRepository.findById(12L)).thenReturn(Optional.of(task));
         when(projectService.findEntity(1L)).thenReturn(task.getProject());
+        when(projectService.isMember(task.getProject(), 2L)).thenReturn(true);
         when(userRepository.findById(2L)).thenReturn(Optional.of(dev));
         when(taskRepository.saveAndFlush(task)).thenReturn(task);
 
@@ -92,7 +99,7 @@ class TaskServicePermissionTests {
 
     private UpdateTaskRequest request(String title, TaskStatus status, Long version) {
         return new UpdateTaskRequest(title, "Description", status, TaskPriority.MEDIUM,
-                null, 1L, 2L, null, null, version);
+            null, 1L, 2L, null, null, version, null, null);
     }
 
     private User user(Long id, Role role) {

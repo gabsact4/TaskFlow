@@ -4,6 +4,7 @@ import com.KernelPanic.TaskFlow.entity.Task;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 
 public record TaskResponse(
@@ -16,6 +17,8 @@ public record TaskResponse(
         LocalDate recurrenceEndDate,
         LocalDate nextOccurrenceDate,
         LocalDate dueDate,
+        LocalDate plannedStartDate,
+        BigDecimal estimatedHours,
         Long projectId,
         String projectName,
         Long assigneeId,
@@ -39,6 +42,8 @@ public record TaskResponse(
                 task.getRecurrenceEndDate(),
                 task.getNextOccurrenceDate(),
                 task.getDueDate(),
+                task.getPlannedStartDate(),
+                task.getEstimatedHours(),
                 task.getProject().getId(),
                 task.getProject().getName(),
                 task.getAssignee() == null ? null : task.getAssignee().getId(),

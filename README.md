@@ -125,6 +125,12 @@ O cadastro público permite escolher Dev, PO ou Master. Contas Master têm acess
 
 Notificações de vencimento ficam persistidas no servidor: alertas críticos são gerados para tarefas vencidas ou que vencem hoje/amanhã; lembretes futuros respeitam a preferência individual (0–30 dias). Clientes autenticados sincronizam tarefas, projetos, papéis e notificações pelo backend compartilhado, com atualização automática em poucos segundos e ao reabrir o app. Veja [docs/NOTIFICACOES.md](backend/TaskFlow/docs/NOTIFICACOES.md) e [docs/GERENCIAMENTO_USUARIOS.md](backend/TaskFlow/docs/GERENCIAMENTO_USUARIOS.md).
 
+O app também oferece comentários e anexos nas tarefas, estimativas e análise de capacidade da equipe, alertas não bloqueantes de conflitos de agenda e solicitações de férias/ausências com aprovação. Regras, limites e contratos da API estão em [docs/COLABORACAO_CARGA_AUSENCIAS.md](backend/TaskFlow/docs/COLABORACAO_CARGA_AUSENCIAS.md).
+
+O fluxo de produtividade inclui cronômetro persistente por tarefa, modo Foco/Pomodoro, metas semanais/mensais, relatórios individuais/de equipe e previsão de conclusão de projeto. Regras e endpoints: [docs/PRODUTIVIDADE.md](backend/TaskFlow/docs/PRODUTIVIDADE.md).
+
+Histórico de alterações, cache e fila offline com resolução explícita de conflitos, exportação CSV/JSON e backup automático são descritos em [docs/HISTORICO_SINCRONIZACAO_EXPORTACAO_BACKUP.md](backend/TaskFlow/docs/HISTORICO_SINCRONIZACAO_EXPORTACAO_BACKUP.md). O Compose cria backups criptografados diários às 02:00 UTC dos dados MySQL e anexos, com 14 dias de retenção no volume `taskflow-backups`; configure uma chave própria com `BACKUP_ENCRYPTION_KEY` antes de produção. `docker compose down -v` também remove os volumes de backup.
+
 ## Critérios de conclusão das tasks
 
 - Implementação realizada na camada correspondente.

@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
+    java.util.Optional<Task> findByClientMutationId(String clientMutationId);
     List<Task> findByProjectIdOrderByCreatedAtDesc(Long projectId);
     List<Task> findByProjectIdAndStatusOrderByCreatedAtDesc(Long projectId, TaskStatus status);
     @Query("select distinct t.project from Task t where t.assignee.id = :assigneeId")
