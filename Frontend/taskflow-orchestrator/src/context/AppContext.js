@@ -5,6 +5,11 @@ import { can as roleCan } from '../utils/permissions';
 import { clearAccessToken, loadOfflineData, loadOfflineQueue, persistSession, restoreSession, saveOfflineData, saveOfflineQueue } from '../offlineStore';
 
 const isNetworkFailure = (error) => !error?.status && String(error?.message || '').includes('Não foi possível conectar');
+const activeTimerRequest = () => request('/productivity/timer/active').catch((error) => {
+  if (!error.status || error.status < 500) throw error;
+  console.warn('Não foi possível carregar o timer ativo:', error.message);
+  return null;
+});
 const localMutationId = () => `offline-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 const taskCreateBody = (data) => ({
   title: data.title, description: data.description || '', status: apiStatus(data.status || 'todo'), priority: (data.priority || 'medium').toUpperCase(),
@@ -171,7 +176,7 @@ export function AppProvider({ children }) {
     setLoading(true);
     setError('');
     try {
-      const [projectData, me, reminder, notificationData, unreadData, timerData] = await Promise.all([request('/projects'), request('/users/me'), request('/users/me/reminder-days'), request('/notifications'), request('/notifications/unread-count'), request('/productivity/timer/active')]);
+      const [projectData, me, reminder, notificationData, unreadData, timerData] = await Promise.all([request('/projects'), request('/users/me'), request('/users/me/reminder-days'), request('/notifications'), request('/notifications/unread-count'), activeTimerRequest()]);
       setReminderDays(reminder);
       setMyNotifications(notificationData.map((n) => ({ ...n, id: String(n.id), body: n.message, date: n.createdAt, read: !!n.readAt })));
       setUnreadCount(unreadData.count);
@@ -189,7 +194,16 @@ export function AppProvider({ children }) {
       setError('');
       const syncedTasks = await syncQueuedMutations(normalizedTasks, currentUser.id);
       await saveOfflineData(currentUser.id, { user: currentUser, users: userRows, projects: projectRows, tasks: syncedTasks || normalizedTasks });
-    } catch (e) { setOnline(false); setError(e.message); }
+    } catch (e) {
+      setOnline(false);
+      if (e.status === 401) {
+        setToken(null);
+        clearAccessToken().catch(() => {});
+        setUser(null); setUsers([]); setProjects([]); setTasks([]);
+        setMyNotifications([]); setUnreadCount(0); setActiveTimer(null); setOfflineQueue([]);
+        setError('Sua sessão expirou. Faça login novamente.');
+      } else setError(e.message);
+    }
     finally { setLoading(false); refreshInFlight.current = false; }
   }, [user?.id, syncQueuedMutations]);
 
@@ -204,7 +218,7 @@ export function AppProvider({ children }) {
       setProjects(cachedData.projects || []); setUsers(cachedData.users || []); setTasks(cachedData.tasks || []);
     }
     try {
-    const [projectData, me, reminder, notificationData, unreadData, timerData] = await Promise.all([request('/projects'), request('/users/me'), request('/users/me/reminder-days'), request('/notifications'), request('/notifications/unread-count'), request('/productivity/timer/active')]);
+    const [projectData, me, reminder, notificationData, unreadData, timerData] = await Promise.all([request('/projects'), request('/users/me'), request('/users/me/reminder-days'), request('/notifications'), request('/notifications/unread-count'), activeTimerRequest()]);
     setReminderDays(reminder);
     setMyNotifications(notificationData.map((n) => ({ ...n, id: String(n.id), body: n.message, date: n.createdAt, read: !!n.readAt })));
     setUnreadCount(unreadData.count);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius } from '../theme';
+import { colors, radius, shadow } from '../theme';
 
 export const Card = ({ children, style, onPress }) =>
   onPress ? (
@@ -32,11 +32,7 @@ export const Button = ({ title, onPress, variant = 'primary', icon, disabled, st
           backgroundColor: bg,
           borderColor: variant === 'outline' ? colors.primary : bg,
           opacity: disabled ? 0.5 : 1,
-          shadowColor: bg === 'transparent' ? colors.primary : '#000',
-          shadowOpacity: bg === 'transparent' ? 0.08 : 0.12,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 2,
+          ...shadow(bg === 'transparent' ? colors.primary : '#000', bg === 'transparent' ? 0.08 : 0.12, 8, 0, 4, 2),
         },
         style,
       ]}
@@ -121,11 +117,7 @@ const s = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    ...shadow('#000', 0.05, 10, 0, 4, 3),
   },
   badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, alignSelf: 'flex-start' },
   badgeText: { fontSize: 11, fontWeight: '700' },
@@ -134,5 +126,5 @@ const s = StyleSheet.create({
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, marginRight: 8 },
   label: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 6 },
   input: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.text },
-  fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+  fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...shadow('#000', 0.2, 8, 0, 4, 6) },
 });

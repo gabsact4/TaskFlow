@@ -49,7 +49,8 @@ function Tabs() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         headerTitleStyle: { fontWeight: '800' },
-        headerStyle: { backgroundColor: colors.card, shadowOpacity: 0 },
+        headerStyle: { backgroundColor: colors.card },
+        headerShadowVisible: false,
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopWidth: 1,

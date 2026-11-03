@@ -16,7 +16,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -58,6 +57,22 @@ class TaskTimerServiceTests {
 
         assertThrows(ResponseStatusException.class, () -> service.start(new StartTaskTimerRequest(9L), user));
         verify(taskService, never()).findEntity(anyLong());
+    }
+
+    @Test
+    void loadsPausedTimerWithoutPauseTimestamp() {
+        User user = User.builder().id(1L).role(Role.DEV).build();
+        Task task = Task.builder().id(9L).title("Implementar fluxo").build();
+        TaskTimerSession paused = TaskTimerSession.builder()
+                .id(3L).user(user).task(task).status(TaskTimerSession.TimerStatus.PAUSED)
+                .startedAt(Instant.now().minusSeconds(30)).pausedAt(null).pausedSeconds(0L).build();
+        when(timers.findFirstByUserIdAndStatusInOrderByStartedAtDesc(eq(1L), anyCollection()))
+                .thenReturn(Optional.of(paused));
+
+        var response = service.active(user);
+
+        assertEquals("PAUSED", response.status());
+        assertTrue(response.elapsedSeconds() >= 30);
     }
 
     @Test

@@ -62,7 +62,10 @@ public class TaskTimerService {
         TaskTimerSession session = requireActive(user);
         if (session.getStatus() != TaskTimerSession.TimerStatus.PAUSED) throw new ResponseStatusException(HttpStatus.CONFLICT, "O timer não está pausado.");
         Instant now = Instant.now();
-        session.setPausedSeconds(session.getPausedSeconds() + Duration.between(session.getPausedAt(), now).getSeconds());
+        if (session.getPausedAt() != null) {
+            long pausedSeconds = session.getPausedSeconds() == null ? 0L : session.getPausedSeconds();
+            session.setPausedSeconds(pausedSeconds + Duration.between(session.getPausedAt(), now).getSeconds());
+        }
         session.setPausedAt(null);
         session.setStatus(TaskTimerSession.TimerStatus.RUNNING);
         return toResponse(session);
@@ -104,8 +107,11 @@ public class TaskTimerService {
     }
     private TaskTimerResponse toResponse(TaskTimerSession session) { return TaskTimerResponse.fromEntity(session, elapsedSeconds(session, Instant.now())); }
     private long elapsedSeconds(TaskTimerSession session, Instant now) {
-        Instant end = session.getStatus() == TaskTimerSession.TimerStatus.PAUSED ? session.getPausedAt() : now;
-        long elapsed = Duration.between(session.getStartedAt(), end).getSeconds() - session.getPausedSeconds();
+        if (session.getStartedAt() == null) return 0L;
+        Instant end = session.getStatus() == TaskTimerSession.TimerStatus.PAUSED && session.getPausedAt() != null
+                ? session.getPausedAt() : now;
+        long pausedSeconds = session.getPausedSeconds() == null ? 0L : session.getPausedSeconds();
+        long elapsed = Duration.between(session.getStartedAt(), end).getSeconds() - pausedSeconds;
         return Math.max(0, elapsed);
     }
 }

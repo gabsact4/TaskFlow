@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export const colors = {
   primary: '#4F46E5',
   bg: '#F3F4F6',
@@ -14,21 +16,26 @@ export const colors = {
 export const radius = { xs: 6, sm: 10, md: 14, lg: 18, pill: 999 };
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 };
 
+export const shadow = (color = '#000', opacity = 0.1, blur = 8, x = 0, y = 4, elevation = 3) => {
+  if (Platform.OS === 'web') {
+    const hex = color.replace('#', '');
+    const rgb = hex.length === 3
+      ? hex.split('').map((part) => parseInt(part + part, 16))
+      : [0, 2, 4].map((index) => parseInt(hex.slice(index, index + 2), 16));
+    return { boxShadow: `${x}px ${y}px ${blur}px rgba(${rgb.join(', ')}, ${opacity})` };
+  }
+  return {
+    shadowColor: color,
+    shadowOpacity: opacity,
+    shadowRadius: blur,
+    shadowOffset: { width: x, height: y },
+    elevation,
+  };
+};
+
 export const shadows = {
-  soft: {
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
-  },
-  card: {
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 5,
-  },
+  soft: shadow('#000', 0.06, 12, 0, 6, 4),
+  card: shadow('#000', 0.08, 14, 0, 8, 5),
 };
 
 export const STATUS = {

@@ -1,6 +1,7 @@
 package com.KernelPanic.TaskFlow.config;
 
 import com.KernelPanic.TaskFlow.security.JwtAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +23,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -62,6 +64,13 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest().authenticated()
                 )
+                .exceptionHandling(exceptions -> exceptions
+                    .authenticationEntryPoint((request, response, exception) ->
+                        writeSecurityError(response, 401, "Não autorizado",
+                            "Token ausente, inválido ou expirado. Faça login novamente."))
+                    .accessDeniedHandler((request, response, exception) ->
+                        writeSecurityError(response, 403, "Acesso negado",
+                            "Você não tem permissão para acessar este recurso.")))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -69,11 +78,20 @@ public class SecurityConfig {
         return http.build();
     }
 
+    private void writeSecurityError(HttpServletResponse response, int status, String error, String message)
+            throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("{\"status\":" + status + ",\"error\":\"" + error
+                + "\",\"message\":\"" + message + "\"}");
+    }
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
             @Value("${security.cors.allowed-origins}") String allowedOrigins) {
         List<String> origins = Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
+            .map(origin -> origin.trim())
                 .filter(origin -> !origin.isEmpty())
                 .toList();
         if (origins.isEmpty()) {
