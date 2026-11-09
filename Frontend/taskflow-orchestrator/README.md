@@ -6,14 +6,18 @@ Aplicativo Expo conectado à API Spring Boot do TaskFlow. Login e cadastro usam 
 
 ```bash
 npm install
-npx expo start
+npm run android
 ```
+
+Com o celular e o computador na mesma rede Wi-Fi, abra o Expo Go e leia o QR code exibido no terminal. O script inicia o servidor Expo pela rede local; não precisa abrir um emulador Android.
 
 A API deve estar em execução em `http://localhost:8080`. O app usa `http://10.0.2.2:8080` por padrão no emulador Android e `http://localhost:8080` no iOS e web. Para aparelho físico ou outro endereço, defina `EXPO_PUBLIC_API_URL` antes de iniciar o Expo, por exemplo:
 
 ```bash
 EXPO_PUBLIC_API_URL=http://192.168.1.20:8080 npx expo start
 ```
+
+No PowerShell do Windows, configure a URL antes de iniciar com `$env:EXPO_PUBLIC_API_URL="http://192.168.1.20:8080"; npm run android`. Troque o IP pelo endereço do computador na rede. No celular, `localhost` aponta para o próprio celular, então a API também precisa estar acessível pelo IP da máquina.
 
 O backend precisa ter o banco, `JWT_SECRET` e as chaves de criptografia configurados. Para Expo Web, configure também `CORS_ALLOWED_ORIGINS` no backend com a origem usada pelo Expo.
 
